@@ -49,14 +49,14 @@ public class XMLParser {
 //--------------------------------------------------------------------------------------------------------------------------------------------
 	public static void findAllSOTagsAndTheriValidCharacters(String inputPath, String outputPath, String inputFileName, String outputFileName1_AllTags, String outputFileName2_AllValidCharacters){
 		try{
-			FileReader fr = new FileReader(inputPath + "\\" + inputFileName);
+			FileReader fr = new FileReader(inputPath + "/" + inputFileName);
 			BufferedReader br = new BufferedReader(fr); 
-			FileWriter writer1_AllTags = new FileWriter(outputPath + "\\" + outputFileName1_AllTags);
-			FileWriter writer2_AllValidCharacters = new FileWriter(inputPath + "\\" + outputFileName2_AllValidCharacters);
+			FileWriter writer1_AllTags = new FileWriter(outputPath + "/" + outputFileName1_AllTags);
+			FileWriter writer2_AllValidCharacters = new FileWriter(inputPath + "/" + outputFileName2_AllValidCharacters);
 
-			System.out.println("    Reading file \"" + inputPath + "\\" + inputFileName + "\" --------> Started ...");
-			System.out.println("    Building file \"" + outputPath + "\\" + outputFileName1_AllTags + " --------> Started ...");
-			System.out.println("    Building file \"" + outputPath + "\\" + outputFileName2_AllValidCharacters + " --------> Started ...");
+			System.out.println("    Reading file \"" + inputPath + "/" + inputFileName + "\" --------> Started ...");
+			System.out.println("    Building file \"" + outputPath + "/" + outputFileName1_AllTags + " --------> Started ...");
+			System.out.println("    Building file \"" + outputPath + "/" + outputFileName2_AllValidCharacters + " --------> Started ...");
 			String s, aTag, validCharacters = "", aValidCharacterAsRegEx;
 			
 			while((s = br.readLine()) != null) {
@@ -67,8 +67,8 @@ public class XMLParser {
 						aTag = aTag.replaceAll("[0-9a-zA-Z]", "");
 						for (int i=0; i < aTag.length(); i++){
 							aValidCharacterAsRegEx = String.valueOf(aTag.charAt(i));
-							if (aValidCharacterAsRegEx.matches("\\p{Punct}"))
-								aValidCharacterAsRegEx = "\\" + aValidCharacterAsRegEx;
+							if (aValidCharacterAsRegEx.matches("/p{Punct}"))
+								aValidCharacterAsRegEx = "/" + aValidCharacterAsRegEx;
 							if (!(validCharacters.matches(".*" + aValidCharacterAsRegEx + ".*")))
 								validCharacters = validCharacters + aTag.charAt(i);
 						} //for (int i....
@@ -84,9 +84,9 @@ public class XMLParser {
 			br.close();
 			fr.close();
 
-			System.out.println("    Reading file \"" + inputPath + "\\" + inputFileName + "\" --------> Finished.");
-			System.out.println("    File \"" + outputPath + "\\" + outputFileName1_AllTags + " --------> Finished ...");
-			System.out.println("    File \"" + outputPath + "\\" + outputFileName2_AllValidCharacters + " --------> Finished ...");
+			System.out.println("    Reading file \"" + inputPath + "/" + inputFileName + "\" --------> Finished.");
+			System.out.println("    File \"" + outputPath + "/" + outputFileName1_AllTags + " --------> Finished ...");
+			System.out.println("    File \"" + outputPath + "/" + outputFileName2_AllValidCharacters + " --------> Finished ...");
 		}
 		catch (Exception e) {
 			e.printStackTrace();
@@ -100,8 +100,8 @@ public class XMLParser {
 			String mergedDataSetOutputPath, String mergedDataSetOutputTSV){
 		try{
 			System.out.println("    1- Reading Old Users (with emailHash) --------> Started ...");
-			BufferedReader br1 = new BufferedReader(new FileReader(oldDataSetInputPath + "\\" + oldDataSetInputXML)); 
-			FileWriter writer1 = new FileWriter(oldDataSetOutputPath + "\\" + oldDataSetOutputTSV);
+			BufferedReader br1 = new BufferedReader(new FileReader(oldDataSetInputPath + "/" + oldDataSetInputXML)); 
+			FileWriter writer1 = new FileWriter(oldDataSetOutputPath + "/" + oldDataSetOutputTSV);
 			String s, anId, aCreationDate, aDisplayName, anEmailHash;
 			HashMap<String, String[]> oldUsers = new HashMap<String, String[]>();
 			int i = 0, oldUsersRead;
@@ -129,9 +129,9 @@ public class XMLParser {
 			br1.close();
 			
 			System.out.println("    3- Reading New Users (without emailHash) --------> Started ...");
-			BufferedReader br2 = new BufferedReader(new FileReader(newDataSetInputPath + "\\" + newDataSetInputXML)); 
+			BufferedReader br2 = new BufferedReader(new FileReader(newDataSetInputPath + "/" + newDataSetInputXML)); 
 			System.out.println("        4- Building merged TSV file (EMailHash from oldUsers plus other info from newUsers) --------> Started ...");
-			FileWriter writer2 = new FileWriter(mergedDataSetOutputPath + "\\" + mergedDataSetOutputTSV);
+			FileWriter writer2 = new FileWriter(mergedDataSetOutputPath + "/" + mergedDataSetOutputTSV);
 			int newUsersRead = 0, 
 					newUsersMatchingOldUsers_IdButNoEmailHashForOldUser = 0, 
 					newUsersCompletelyMatchingOldUsers = 0, 
@@ -199,20 +199,20 @@ public class XMLParser {
 		try{ //This method reads an XML file of Stack Overflow data set (like Posts or Votes), and converts it (the given fields) into TSV format. The delimiters are only used for array items (e.g., Tags). 
 			MyUtils.println(writeMessageStep+"-1- Reading XML --------> Started ...", indentationLevel);
 			MyUtils.println(writeMessageStep+"-2- Writing TSV --------> Started ...", indentationLevel+1);
-			BufferedReader br1 = new BufferedReader(new FileReader(inputXMLPath + "\\" + inputXMLFileName)); 
-			FileWriter writer1 = new FileWriter(outputTSVPath + "\\" + outputTSVFileName);
+			BufferedReader br1 = new BufferedReader(new FileReader(inputXMLPath + "/" + inputXMLFileName)); 
+			FileWriter writer1 = new FileWriter(outputTSVPath + "/" + outputTSVFileName);
 			String s, field, fieldValue;
 			int i = 0, j;
-			String[] fields = tsvHeaderFieldsSeparatedByDollar.split("\\$");
-			String[] fieldsThatNeedCleanup = fieldsThatNeedCleanUpSeparatedByDollar.split("\\$");
+			String[] fields = tsvHeaderFieldsSeparatedByDollar.split("/$");
+			String[] fieldsThatNeedCleanup = fieldsThatNeedCleanUpSeparatedByDollar.split("/$");
 			//Writing the header:
 			for (j=0; j<fields.length-1; j++)
 				if (fields[j].startsWith("[]"))
-					writer1.append(fields[j].replaceAll("\\[\\]", "") + "\t");
+					writer1.append(fields[j].replaceAll("/[/]", "") + "\t");
 				else
 					writer1.append(fields[j] + "\t");
 			if (fields[j].startsWith("[]"))
-				writer1.append(fields[j].replaceAll("\\[\\]", "") + "\n");
+				writer1.append(fields[j].replaceAll("/[/]", "") + "\n");
 			else
 				writer1.append(fields[j] + "\n");
 
@@ -225,7 +225,7 @@ public class XMLParser {
 					for (j=0; j<fields.length; j++){
 						field = fields[j];
 						if (field.startsWith("[]")){
-							field = field.replaceAll("\\[\\]", "");
+							field = field.replaceAll("/[/]", "");
 							fieldValue = readFieldInXMLRow(s, field);
 							fieldValue = convertTwoDelimitersBeforeAndAfterToOneDelimiterBetween(fieldValue, 
 									delimiter1AsValueSeparator, delimiter2AsValueSeparator, delimiter1AsValueSeparatorRegex, delimiter2AsValueSeparatorRegex, 
@@ -283,7 +283,7 @@ public class XMLParser {
 		//Previously ran successfully:
 //		xmlToTSV(Constants.DATASET_DIRECTORY_SO_WITHOUT_EMAIL_HASH, "Posts.xml", 
 //		"Id$PostTypeId$OwnerUserId$ParentId$Score$[]Tags$CreationDate$AnswerCount$Title", 
-//		"&lt;", "&gt;", "\\&lt\\;", "\\&gt\\;", 
+//		"&lt;", "&gt;", "/&lt/;", "/&gt/;", 
 //		"Title", 
 //		Constants.DATASET_DIRECTORY_SO_WITHOUT_EMAIL_HASH, "Posts.tsv");
 

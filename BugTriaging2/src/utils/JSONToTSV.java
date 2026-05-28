@@ -23,8 +23,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 //--------------------------------------------------------------------------------------------------------------------------------------------
 public class JSONToTSV {
 	//--------------------------------------------------------------------------------------------------------------------------------------------
-	private static final String DATASET_DIRECTORY_GH_JSON = "C:\\2-Study\\BugTriaging2\\Data Set\\GH\\AtLeastUpTo20161001\\1-JSON\\3- 13 projects + 2 project families (13 + 6 more projects)";
-	private static final String DATASET_DIRECTORY_GH_TSV = "C:\\2-Study\\BugTriaging2\\Data Set\\GH\\AtLeastUpTo20161001\\2-TSV\\3- 13 projects + 2 project families (13 + 6 more projects)";
+	private static final String DATASET_DIRECTORY_GH_JSON = "C:/2-Study/BugTriaging2/Data Set/GH/AtLeastUpTo20161001/1-JSON/3- 13 projects + 2 project families (13 + 6 more projects)";
+	private static final String DATASET_DIRECTORY_GH_TSV = "C:/2-Study/BugTriaging2/Data Set/GH/AtLeastUpTo20161001/2-TSV/3- 13 projects + 2 project families (13 + 6 more projects)";
 	//--------------------------------------------------------------------------------------------------------------------------------------------
 	static String getValueFromJSONAndRemoveInvalidCharactersAndPutSeparatorBeforeIt(JSONObject jsO, String fieldName, String fileName, AtomicBoolean itIsTheFirstFieldInTheLine){
 		String fieldValue;
@@ -55,13 +55,13 @@ public class JSONToTSV {
 			if (wrapOutputInLines)
 				MyUtils.println("-----------------------------------", indentationLevel);
 			System.out.println(MyUtils.indent(indentationLevel) + writeMessageStep + " Reading input (json) file and writing into output (TSV) file:");
-			System.out.println(MyUtils.indent(indentationLevel) + outputPath + "\\" + fileName + ".tsv");
+			System.out.println(MyUtils.indent(indentationLevel) + outputPath + "/" + fileName + ".tsv");
 			System.out.println(MyUtils.indent(indentationLevel+1) + "Started ...");
 
-			BufferedReader br = new BufferedReader(new FileReader(inputPath + "\\" + fileName + ".json")); 
+			BufferedReader br = new BufferedReader(new FileReader(inputPath + "/" + fileName + ".json")); 
 			JSONParser jsonParser = new JSONParser();
 			JSONObject jsonObject;
-			FileWriter writer = new FileWriter(outputPath + "\\" + fileName + ".tsv");
+			FileWriter writer = new FileWriter(outputPath + "/" + fileName + ".tsv");
 			String title = "";
 			for (String field: Constants.USEFUL_FIELDS_IN_JSON_FILES.get(fileName + ":labels")){
 				if (!title.equals(""))	
@@ -76,17 +76,17 @@ public class JSONToTSV {
 			AtomicBoolean itIsTheFirstFieldInTheLine = new AtomicBoolean();
 			boolean itIsTheFirstMemberInTheJSONArray;
 			while((s = br.readLine()) != null) {
-				//s=s.replaceAll("\\p{Cntrl}", "");
+				//s=s.replaceAll("/p{Cntrl}", "");
 				jsonObject= (JSONObject) jsonParser.parse(s);
 				itIsTheFirstFieldInTheLine.set(true);
 				for (String field: Constants.USEFUL_FIELDS_IN_JSON_FILES.get(fileName))
-					if (field.matches(".*\\{\\}.*")){
+					if (field.matches(".*/{/}.*")){
 						firstLevelField = field.substring(0, field.indexOf("{}"));
 
 						if (jsonObject.get(firstLevelField) == null){
 							secondLevelJSONString = "";
 							severalFieldsSeparatedByDollarSign = field.substring(field.indexOf("{}") + 2);
-							fieldsArray = severalFieldsSeparatedByDollarSign.split(Constants.FIELD_DELIMITER_FOR_JSON_OBJECT); //i.e., "\\&"
+							fieldsArray = severalFieldsSeparatedByDollarSign.split(Constants.FIELD_DELIMITER_FOR_JSON_OBJECT); //i.e., "/&"
 							for (j=0; j<fieldsArray.length; j++){
 								if (itIsTheFirstFieldInTheLine.get()){
 									itIsTheFirstFieldInTheLine.set(false);
@@ -101,7 +101,7 @@ public class JSONToTSV {
 							secondLevelJSONString = jsonObject.get(firstLevelField).toString();
 
 							severalFieldsSeparatedByDollarSign = field.substring(field.indexOf("{}") + 2);
-							fieldsArray = severalFieldsSeparatedByDollarSign.split(Constants.FIELD_DELIMITER_FOR_JSON_OBJECT); //i.e., "\\&"
+							fieldsArray = severalFieldsSeparatedByDollarSign.split(Constants.FIELD_DELIMITER_FOR_JSON_OBJECT); //i.e., "/&"
 							for (j=0; j<fieldsArray.length; j++){
 								JSONParser secondLevelJSONParser = new JSONParser();
 								JSONObject secondLevelJSONObject;
@@ -113,7 +113,7 @@ public class JSONToTSV {
 						}//else.
 					} //if (field....
 					else
-						if (field.matches(".*\\[\\].*")){
+						if (field.matches(".*/[/].*")){
 							fieldValue = "[";
 							String mainFieldName = field.substring(0, field.indexOf("[]"));//: The field comes in the form of "mainField[]subField" --> only one subField is allowed as of now.
 							JSONArray jsonArray = (JSONArray) jsonObject.get(mainFieldName);
@@ -267,9 +267,9 @@ public class JSONToTSV {
 			MyUtils.println("-----------------------------------", indentationLevel+1);
 			MyUtils.println(writeMessageStep + "-2-Readig \"" + bugsFileName + ".tsv\" and merging with \"" + bugsFileName + ".tsv\" (which is already in memory):" , indentationLevel+1);
 			MyUtils.println("Started ...", indentationLevel+1);
-			BufferedReader br = new BufferedReader(new FileReader(inputPath + "\\" + bugsFileName + ".tsv")); 
-			FileWriter issuesWriter = new FileWriter(outputPath + "\\" + issuesOutputFileName + ".tsv");
-			FileWriter pRsWriter = new FileWriter(outputPath + "\\" + prsOutputFileName + ".tsv");
+			BufferedReader br = new BufferedReader(new FileReader(inputPath + "/" + bugsFileName + ".tsv")); 
+			FileWriter issuesWriter = new FileWriter(outputPath + "/" + issuesOutputFileName + ".tsv");
+			FileWriter pRsWriter = new FileWriter(outputPath + "/" + prsOutputFileName + ".tsv");
 			int neglectedRecords = 0;
 			int i = 0;
 			int bugRecordsWritten = 0;
@@ -392,7 +392,7 @@ public class JSONToTSV {
 //		generateSecondaryTSVsAndCleanDataSet();
 
 		//		//TESTING-BEGIN:
-		////		String s = "link:ftp://example.com/aa#&*()@asd/asd:asd~!@#$%^&*()_+=-`{}|\\l][:\";'<>?,./";
+		////		String s = "link:ftp://example.com/aa#&*()@asd/asd:asd~!@#$%^&*()_+=-`{}|/l][:\";'<>?,./";
 		////		String s = "written.\n\nWhat";
 		////		String s = "@gkop @oscardelben The rails stable guides, much like code, are updated only with rails releases. And http://edgeguides.rubyonrails.org is where you can find the master guides as they are being written.\n\nWhat you find in http://guides.rubyonrails.org is the current stable version of the guide as available in Rails 3.2.3. Any updates to this will happen when the next stable version is released (3.2.4 or 4.0.0 whichever is earlier). \n\nIf the earlier version is 3.2.4 (most likely scenario), the changes that will get updated in the stable guide will be the ones done in 3-2-stable since 3.2.3 was released. The changes done in master will not be available in this case.\n\nOn the other hand, if the next stable version we release is 4.0.0 (unlikely that this will happen before 3.2.4), the changes done in master will be available in the stable guides at http://guides.rubyonrails.org.\n\n@oscardelben As far as I know, your's and Ryan's work on the getting started guide is targeted only at Rails 4. I'm not sure if we should make a complete rewrite of the guide in a patch release (3.2.4). Let's ask @fxn what he thinks.\n\nAnd for the issue that @gkop pointed out, this is already [fixed](https://github.com/rails/rails/commit/ccf80c2ec458586d3a7a534dcca5622ad6ff7ee3) in 3-2-stable and will definitely be available in 3.2.4. ";
 		////		String s = "written.\n\nWhat \n\nIf case.\n\nOn changes http://guides.rubyonrails.org.\n\n@oscardelben thinks.\n\nAnd . ";
@@ -400,7 +400,7 @@ public class JSONToTSV {
 		//		System.out.println(s);
 		//		System.out.println("-----------------------");
 		//		System.out.println("-----------------------");
-		//		s = s.replaceAll("((https?|ftp)://[^`=\\[\\]\\\\\n\r\t;',~!\\$%^&*(){}|\"<>?/:]+)?[^a-zA-Z0-9\\.\\#\\+\\-\\@]", "$1 ");
+		//		s = s.replaceAll("((https?|ftp)://[^`=/[/]//\n\r\t;',~!/$%^&*(){}|\"<>?/:]+)?[^a-zA-Z0-9/./#/+/-/@]", "$1 ");
 		//		System.out.println(s);
 		//		System.out.println("-----------------------");
 		//		//TESTING-END.

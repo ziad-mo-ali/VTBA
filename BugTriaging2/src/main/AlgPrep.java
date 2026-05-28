@@ -499,7 +499,7 @@ public class AlgPrep {
 		try {
 			//Detailed stats:
 			MyUtils.println(writeMessageStep+"-1- Detailed stats (in 5 files in a separate folder) ...", indentationLevel+1);
-			FileWriter writer1 = new FileWriter(outputPath+"\\"+assignmentResultsOveralFolderName+"\\"+detailedAssignmentResultsSubfolderName+"\\"+detailedAssignmentResultsSubfolderName+" - "+detailedSummaryOutputFileNameSuffix+".tsv");
+			FileWriter writer1 = new FileWriter(outputPath+"/"+assignmentResultsOveralFolderName+"/"+detailedAssignmentResultsSubfolderName+"/"+detailedAssignmentResultsSubfolderName+" - "+detailedSummaryOutputFileNameSuffix+".tsv");
 			writer1.append("project" + TAB + "bugNumber" + TAB + "assignmentDate" + TAB + "ourTopRecommendedRealAssignee" 
 					+ TAB + "ourTopRecommendedRealAssigneeRank" + TAB + "totalCommunityMembers" + TAB + "realAssigneesTillNow" + "\n");
 			int totalNOA = 0; //: total number of assignments.
@@ -614,7 +614,7 @@ public class AlgPrep {
 			
 			//Overal stats:
 			MyUtils.println(writeMessageStep+"-2- Overal stats (in 5 files in the main output folder) ...", indentationLevel+1);
-			String outputFileName2_overalStat = outputPath+"\\"+overalSummariesOutputTSVFileName+" - "+detailedSummaryOutputFileNameSuffix+".tsv";
+			String outputFileName2_overalStat = outputPath+"/"+overalSummariesOutputTSVFileName+" - "+detailedSummaryOutputFileNameSuffix+".tsv";
 			File file2 = new File(outputFileName2_overalStat);
 			boolean needToWriteHeader2 = true;
 			if (file2.exists())
@@ -700,7 +700,7 @@ public class AlgPrep {
 
 			//Writer for overall stats (for all assignment types in a single file):
 			MyUtils.println(writeMessageStep+"-2- Summary overal stats (in one file in the main output folder) ...", indentationLevel+1);
-			String outputFileName3_overalStat = outputPath+"\\"+overalSummariesOutputTSVFileName+" - ALL_ASSIGNED_TYPES.tsv";
+			String outputFileName3_overalStat = outputPath+"/"+overalSummariesOutputTSVFileName+" - ALL_ASSIGNED_TYPES.tsv";
 			File file3 = new File(outputFileName3_overalStat);
 			boolean needToWriteHeader3 = true;
 			if (file3.exists())
@@ -1103,7 +1103,7 @@ public class AlgPrep {
 			if (evidenceTypes[Algorithm.INDEX_OF__EVIDENCE_TYPE__COMMIT] == Algorithm.YES){
 				if (!commitsInputFileName.equals("")){
 					BufferedReader br;
-					br = new BufferedReader(new FileReader(inputPath + "\\" + commitsInputFileName));
+					br = new BufferedReader(new FileReader(inputPath + "/" + commitsInputFileName));
 					int i=0;
 					String s;
 					br.readLine(); //header.
@@ -1158,7 +1158,7 @@ public class AlgPrep {
 //			if (evidenceTypes[Algorithm.INDEX_OF__EVIDENCE_TYPE__COMMIT] == Algorithm.YES){
 //				if (!commitsInputFileName.equals("")){
 //					BufferedReader br;
-//					br = new BufferedReader(new FileReader(inputPath + "\\" + commitsInputFileName));
+//					br = new BufferedReader(new FileReader(inputPath + "/" + commitsInputFileName));
 //					int i=0;
 //					String s;
 //					br.readLine(); //header.
@@ -1235,7 +1235,7 @@ public class AlgPrep {
 		int maxFolderPrefixNumber = 0;
 		int folderPrefixNumber;
 		for (String s: directories)
-			if (s.matches("[0-9]+\\-\\s\\S.*")){//:if the folder name starts with a number, then dash followed by a space and at least one non-space (and anything else afterwards).
+			if (s.matches("[0-9]+/-/s/S.*")){//:if the folder name starts with a number, then dash followed by a space and at least one non-space (and anything else afterwards).
 				String regex = "[0-9]+";//: get the starting number (the rest of numbers [if any] are uesless).
 				Pattern p = Pattern.compile(regex);
 				Matcher m = p.matcher(s);
@@ -1252,7 +1252,7 @@ public class AlgPrep {
 		else
 			mainOrTest = "3t";
 		String outputFolderName = Integer.toString(maxFolderPrefixNumber+1) + "- (" + experimentTitle + " - " + mainOrTest + "P) - " + sdf.format(new Date());
-		if (!(new File(outputPath+"\\"+outputFolderName).mkdirs())){
+		if (!(new File(outputPath+"/"+outputFolderName).mkdirs())){
 			fMR.errors = 1;
 			MyUtils.println("Error creating output folder!", indentationLevel);
 		}
@@ -1292,47 +1292,47 @@ public class AlgPrep {
 		switch (option1){
 		case ADD_PTD:
 			originalNumberOfWordsInText_array[0] = bug.title_numberOfWords + bug.body_numberOfWords + project.description_numberOfWords;
-			return (bug.title + " " + bug.body + " " + project.description).replaceAll("\\s{2,}", " ").trim(); //removing extra spaces.
+			return (bug.title + " " + bug.body + " " + project.description).replaceAll("/s{2,}", " ").trim(); //removing extra spaces.
 		case ADD_ML:
 			if (project.mainLanguagePercentages.equals("[]")){
 				originalNumberOfWordsInText_array[0] = bug.title_numberOfWords + bug.body_numberOfWords;
-				return (bug.title + " " + bug.body).replaceAll("\\s{2,}", " ").trim(); //removing extra spaces (that may be added right now by concatenating).
+				return (bug.title + " " + bug.body).replaceAll("/s{2,}", " ").trim(); //removing extra spaces (that may be added right now by concatenating).
 			}
 			else{
 				int[] originalNumberOfLanguages_array = new int[1];
 				String mainLanguages = getMainLanguages(project.mainLanguagePercentages, originalNumberOfLanguages_array);
 				int originalNumberOfLanguages = originalNumberOfLanguages_array[0];
 				originalNumberOfWordsInText_array[0] = bug.title_numberOfWords + bug.body_numberOfWords + originalNumberOfLanguages;
-				return (bug.title + " " + bug.body + " " + mainLanguages).replaceAll("\\s{2,}", " ").trim(); //removing extra spaces (that may be added right now by concatenating).
+				return (bug.title + " " + bug.body + " " + mainLanguages).replaceAll("/s{2,}", " ").trim(); //removing extra spaces (that may be added right now by concatenating).
 			}
 		case ADD_PTD_ML:
 			if (project.mainLanguagePercentages.equals("[]")){
 				originalNumberOfWordsInText_array[0] = bug.title_numberOfWords + bug.body_numberOfWords + project.description_numberOfWords;
-				return (bug.title + " " + bug.body + " " + project.description).replaceAll("\\s{2,}", " ").trim(); //removing extra spaces.
+				return (bug.title + " " + bug.body + " " + project.description).replaceAll("/s{2,}", " ").trim(); //removing extra spaces.
 			}
 			else{
 				int[] originalNumberOfLanguages_array = new int[1];
 				String mainLanguages = getMainLanguages(project.mainLanguagePercentages, originalNumberOfLanguages_array);
 				int originalNumberOfLanguages = originalNumberOfLanguages_array[0];
 				originalNumberOfWordsInText_array[0] = bug.title_numberOfWords + bug.body_numberOfWords + project.description_numberOfWords + originalNumberOfLanguages;
-				return (bug.title + " " + bug.body + " " + project.description + " " + mainLanguages).replaceAll("\\s{2,}", " ").trim(); //removing extra spaces.
+				return (bug.title + " " + bug.body + " " + project.description + " " + mainLanguages).replaceAll("/s{2,}", " ").trim(); //removing extra spaces.
 			}
 		case JUST_USE_BUG_TD:
 		default:
 			originalNumberOfWordsInText_array[0] = bug.title_numberOfWords + bug.body_numberOfWords;
-			return (bug.title + " " + bug.body).replaceAll("\\s{2,}", " ").trim(); //removing extra spaces (that may be added right now by concatenating).
+			return (bug.title + " " + bug.body).replaceAll("/s{2,}", " ").trim(); //removing extra spaces (that may be added right now by concatenating).
 		}
 				
 //		if ((option1 == BTOption1.ADD_PTD || option1 == BTOption1.ADD_PTD_mL) && !project.description.equals(" "))
 //			if ((option1 == BTOption1.ADD_mL || option1 == BTOption1.ADD_PTD_mL) && !project.mainLanguagePercentages.equals("[]"))
-//				return (bug.title + " " + bug.body + " " + project.description + " " + getMainLanguages(project.mainLanguagePercentages)).replaceAll("\\s{2,}", " ").trim(); //removing extra spaces.
+//				return (bug.title + " " + bug.body + " " + project.description + " " + getMainLanguages(project.mainLanguagePercentages)).replaceAll("/s{2,}", " ").trim(); //removing extra spaces.
 //			else
-//				return (bug.title + " " + bug.body + " " + project.description).replaceAll("\\s{2,}", " ").trim(); //removing extra spaces.
+//				return (bug.title + " " + bug.body + " " + project.description).replaceAll("/s{2,}", " ").trim(); //removing extra spaces.
 //		else
 //			if ((option1 == BTOption1.ADD_mL || option1 == BTOption1.ADD_PTD_mL) && !project.mainLanguagePercentages.equals("[]"))
-//				return (bug.title + " " + bug.body + " " + getMainLanguages(project.mainLanguagePercentages)).replaceAll("\\s{2,}", " ").trim(); //removing extra spaces (that may be added right now by concatenating).
+//				return (bug.title + " " + bug.body + " " + getMainLanguages(project.mainLanguagePercentages)).replaceAll("/s{2,}", " ").trim(); //removing extra spaces (that may be added right now by concatenating).
 //			else
-//				return (bug.title + " " + bug.body).replaceAll("\\s{2,}", " ").trim(); //removing extra spaces (that may be added right now by concatenating).
+//				return (bug.title + " " + bug.body).replaceAll("/s{2,}", " ").trim(); //removing extra spaces (that may be added right now by concatenating).
 	}
 	//------------------------------------------------------------------------------------------------------------------------
 	//------------------------------------------------------------------------------------------------------------------------
@@ -1342,7 +1342,7 @@ public class AlgPrep {
 		switch (option6_whatToAddToAllCommits){
 		case ADD_PTD:
 			originalNumberOfWordsInText_array[0] = originalNumberOfWordsInText_array[0] + project.description_numberOfWords;
-			return (commitMessage + " " + project.description).replaceAll("\\s{2,}", " ").trim(); //removing extra spaces.
+			return (commitMessage + " " + project.description).replaceAll("/s{2,}", " ").trim(); //removing extra spaces.
 		case ADD_mL:
 			if (project.mainLanguagePercentages.equals("[]")){
 				originalNumberOfWordsInText_array[0] = originalNumberOfWordsInText_array[0]; //no change.
@@ -1353,19 +1353,19 @@ public class AlgPrep {
 				String mainLanguages = getMainLanguages(project.mainLanguagePercentages, originalNumberOfLanguages_array);
 				int originalNumberOfLanguages = originalNumberOfLanguages_array[0];
 				originalNumberOfWordsInText_array[0] = originalNumberOfWordsInText_array[0] + originalNumberOfLanguages;
-				return (commitMessage + " " + mainLanguages).replaceAll("\\s{2,}", " ").trim(); //removing extra spaces (that may be added right now by concatenating).
+				return (commitMessage + " " + mainLanguages).replaceAll("/s{2,}", " ").trim(); //removing extra spaces (that may be added right now by concatenating).
 			}
 		case ADD_PTD_mL:
 			if (project.mainLanguagePercentages.equals("[]")){
 				originalNumberOfWordsInText_array[0] = originalNumberOfWordsInText_array[0] + project.description_numberOfWords;
-				return (commitMessage + " " + project.description).replaceAll("\\s{2,}", " ").trim(); //removing extra spaces.
+				return (commitMessage + " " + project.description).replaceAll("/s{2,}", " ").trim(); //removing extra spaces.
 			}
 			else{
 				int[] originalNumberOfLanguages_array = new int[1];
 				String mainLanguages = getMainLanguages(project.mainLanguagePercentages, originalNumberOfLanguages_array);
 				int originalNumberOfLanguages = originalNumberOfLanguages_array[0];
 				originalNumberOfWordsInText_array[0] = originalNumberOfWordsInText_array[0] + project.description_numberOfWords + originalNumberOfLanguages;
-				return (commitMessage + " " + project.description + " " + mainLanguages).replaceAll("\\s{2,}", " ").trim(); //removing extra spaces.
+				return (commitMessage + " " + project.description + " " + mainLanguages).replaceAll("/s{2,}", " ").trim(); //removing extra spaces.
 			}
 		case JUST_USE_COMMIT_M:
 		default:
@@ -1374,12 +1374,12 @@ public class AlgPrep {
 		
 //		if ((option6_whatToAddToAllCommits == BTOption6.ADD_PTD || option6_whatToAddToAllCommits == BTOption6.ADD_PTD_mL) && !project.description.equals(" "))
 //			if ((option6_whatToAddToAllCommits == BTOption6.ADD_mL || option6_whatToAddToAllCommits == BTOption6.ADD_PTD_mL) && !project.mainLanguagePercentages.equals("[]"))
-//				return (commitMessage + " " + project.description + " " + getMainLanguages(project.mainLanguagePercentages)).replaceAll("\\s{2,}", " ").trim(); //removing extra spaces.
+//				return (commitMessage + " " + project.description + " " + getMainLanguages(project.mainLanguagePercentages)).replaceAll("/s{2,}", " ").trim(); //removing extra spaces.
 //			else
-//				return (commitMessage + " " + project.description).replaceAll("\\s{2,}", " ").trim(); //removing extra spaces.
+//				return (commitMessage + " " + project.description).replaceAll("/s{2,}", " ").trim(); //removing extra spaces.
 //		else
 //			if ((option6_whatToAddToAllCommits == BTOption6.ADD_mL || option6_whatToAddToAllCommits == BTOption6.ADD_PTD_mL) && !project.mainLanguagePercentages.equals("[]"))
-//				return (commitMessage + " " + getMainLanguages(project.mainLanguagePercentages)).replaceAll("\\s{2,}", " ").trim(); //removing extra spaces (that may be added right now by concatenating).
+//				return (commitMessage + " " + getMainLanguages(project.mainLanguagePercentages)).replaceAll("/s{2,}", " ").trim(); //removing extra spaces (that may be added right now by concatenating).
 //			else
 //				return commitMessage;
 	}

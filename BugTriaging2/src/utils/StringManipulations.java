@@ -5,18 +5,18 @@ public class StringManipulations {
 	public static String clean(String field){
 		//This method converts any special character to one space ('\r' and '\n' are converted to three spaces).
 		
-//		field = field.replaceAll("\\s+", " ");//to remove duplicate whites paces and \n etc.
+//		field = field.replaceAll("/s+", " ");//to remove duplicate whites paces and \n etc.
 		//Remove non-alphanumeric characters (except +-.#@ and http://abc.com):
 			//.#+-@ (the four first ones for SO tags, and the last one for mentioning the users' ids)  . 
-		field = field.replaceAll("\\n", "  ");
-		field = field.replaceAll("\\r", "  ");
-		field = field.replaceAll("((https?|ftp)://[^`=\\[\\]\\\\\n\r\t;',~!\\$%^&*(){}|\"<>?/:]+)?[^a-zA-Z0-9\\.\\#\\+\\-\\@]", "$1 ");
+		field = field.replaceAll("/n", "  ");
+		field = field.replaceAll("/r", "  ");
+		field = field.replaceAll("((https?|ftp)://[^`=/[/]//\n\r\t;',~!/$%^&*(){}|\"<>?/:]+)?[^a-zA-Z0-9/./#/+/-/@]", "$1 ");
 		
 		//I comment the following statement because we need to have all the spaces (after we replaced some invalid characters to space). We need them for merging consecutive words: 
-//		field = field.replaceAll("\\s+", " ");//to remove duplicate whites paces and \n etc.
+//		field = field.replaceAll("/s+", " ");//to remove duplicate whites paces and \n etc.
 		
 		//This is for later (replace any single character by space). The idea is it will be used after merging two consecutive keywords to shape a tag (like "C#" and "3.0" that make "c#-3.0"; sometimes "-" or "."  comes between the two keywords):
-//		fieldValue = fieldValue.replaceAll("(?s)(?<!\\S).(?!\\S)", " "); //to replace any single character by space.
+//		fieldValue = fieldValue.replaceAll("(?s)(?<!/S).(?!/S)", " "); //to replace any single character by space.
 		return field;
 	}
 	//------------------------------------------------------------------------------------------------------------------------
@@ -32,7 +32,7 @@ public class StringManipulations {
 	//------------------------------------------------------------------------------------------------------------------------
 	public static String removeRedundantSpaces(String s){
 		s= s.trim();
-		return s.replaceAll("\\s+", " ");//to remove duplicate whites paces and \n etc, in case there are some.
+		return s.replaceAll("/s+", " ");//to remove duplicate whites paces and \n etc, in case there are some.
 	}
 	//------------------------------------------------------------------------------------------------------------------------
 	public static boolean twoStringArraysAreEqual(String[] s1, String[] s2){
@@ -54,7 +54,7 @@ public class StringManipulations {
 		if (s1.length != s2.length)
 			result = false;
 		else{
-			String[] fieldNumbersToBeChecked_string = fieldNumbersToBeChecked_separatedByDollar.split("\\$");
+			String[] fieldNumbersToBeChecked_string = fieldNumbersToBeChecked_separatedByDollar.split("/$");
 			int[] fieldNumbersToBeRead = new int[fieldNumbersToBeChecked_string.length];
 			for (int i=0; i<fieldNumbersToBeRead.length; i++)
 				fieldNumbersToBeRead[i] = Integer.parseInt(fieldNumbersToBeChecked_string[i]); 

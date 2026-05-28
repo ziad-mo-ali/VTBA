@@ -159,7 +159,7 @@ public class TestBugsSimilarity {
 		ArrayList<String> titlesToReturn_IS_NOT_NEEDED_AND_USED = new ArrayList<String>();
 		TreeMap<String, ArrayList<String[]>> projectsAndTheirAssignments;
 		projectsAndTheirAssignments = TSVManipulations.readNonUniqueKeyAndItsValueFromTSV(
-				"D:\\2-Study\\BugTriaging2\\Data Set\\Main\\GH\\AtLeastUpTo20161001\\4A3-TSV", "9-ASSIGNMENTS_T5_ALL_TYPES.tsv", localFMR, null, 
+				"D:/2-Study/BugTriaging2/Data Set/Main/GH/AtLeastUpTo20161001/4A3-TSV", "9-ASSIGNMENTS_T5_ALL_TYPES.tsv", localFMR, null, 
 				0, SortOrder.DEFAULT_FOR_STRING, 7, "1$2$3", titlesToReturn_IS_NOT_NEEDED_AND_USED,
 				LogicalOperation.NO_CONDITION, 
 				0, ConditionType.NOTHING, "", FieldType.NOT_IMPORTANT, 
@@ -169,7 +169,7 @@ public class TestBugsSimilarity {
 		
 		TreeMap<String, ArrayList<String[]>> projectsAndTheirBugs;
 		projectsAndTheirBugs = TSVManipulations.readNonUniqueKeyAndItsValueFromTSV(
-				"D:\\2-Study\\BugTriaging2\\Data Set\\Main\\GH\\AtLeastUpTo20161001\\4A3-TSV", "1-bugs-T5_ALL_TYPES.tsv", localFMR, null, 
+				"D:/2-Study/BugTriaging2/Data Set/Main/GH/AtLeastUpTo20161001/4A3-TSV", "1-bugs-T5_ALL_TYPES.tsv", localFMR, null, 
 				0, SortOrder.DEFAULT_FOR_STRING, 9, "1$2$3$5$7", titlesToReturn_IS_NOT_NEEDED_AND_USED,
 				LogicalOperation.NO_CONDITION, 
 				0, ConditionType.NOTHING, "", FieldType.NOT_IMPORTANT, 

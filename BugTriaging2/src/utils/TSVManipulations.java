@@ -38,7 +38,7 @@ public class TSVManipulations {
 		try{ 
 			BufferedReader br;
 			//Reading posts and adding <repoId, totalNumberOfMembers> in a hashMap:
-			br = new BufferedReader(new FileReader(inputPath + "\\" + inputFileName)); 
+			br = new BufferedReader(new FileReader(inputPath + "/" + inputFileName)); 
 			MyUtils.println(writeMessageStep + "- Parsing " + inputFileName + ":", indentationLevel);
 			MyUtils.println("Started ...", indentationLevel+1);
 			int error1 = 0, error2 = 0, unmatchedRecords = 0;
@@ -118,7 +118,7 @@ public class TSVManipulations {
 		try{ 
 			BufferedReader br;
 			//Reading posts and adding <repoId, totalNumberOfMembers> in a hashMap:
-			br = new BufferedReader(new FileReader(inputPath + "\\" + inputFileName)); 
+			br = new BufferedReader(new FileReader(inputPath + "/" + inputFileName)); 
 			MyUtils.println(writeMessageStep + "- Parsing " + inputFileName + ":", indentationLevel);
 			MyUtils.println("Started ...", indentationLevel+1);
 			int error1 = 0, error2 = 0, unmatchedRecords = 0;
@@ -208,7 +208,7 @@ public class TSVManipulations {
 		try{ 
 			BufferedReader br;
 			//Reading posts and adding <repoId, totalNumberOfMembers> in a hashMap:
-			br = new BufferedReader(new FileReader(inputPath + "\\" + inputFileName)); 
+			br = new BufferedReader(new FileReader(inputPath + "/" + inputFileName)); 
 			System.out.println(writeMessageStep + MyUtils.indent(indentationLevel) + "- Parsing " + inputFileName + ":");
 			System.out.println(MyUtils.indent(indentationLevel) + "Started ...");
 			int error1 = 0, unmatchedRecords = 0;
@@ -276,7 +276,7 @@ public class TSVManipulations {
 		try{ 
 			BufferedReader br;
 			//Reading posts and adding <repoId, totalNumberOfMembers> in a hashMap:
-			br = new BufferedReader(new FileReader(inputPath + "\\" + inputFileName)); 
+			br = new BufferedReader(new FileReader(inputPath + "/" + inputFileName)); 
 			MyUtils.println(writeMessageStep+"- Parsing "+ inputFileName+":", indentationLevel);
 			MyUtils.println("Started ...", indentationLevel+1);
 			int error1 = 0, error2 = 0, unmatchedRecords = 0;
@@ -347,7 +347,7 @@ public class TSVManipulations {
 		try{ 
 			BufferedReader br;
 			//Reading posts and adding <repoId, totalNumberOfMembers> in a hashMap:
-			br = new BufferedReader(new FileReader(inputPath + "\\" + inputFileName)); 
+			br = new BufferedReader(new FileReader(inputPath + "/" + inputFileName)); 
 			System.out.println(writeMessageStep + "- Parsing " + inputFileName + ", merging two columns and writing in " + outputPathAndFileName + ":");
 			System.out.println(MyUtils.indent(indentationLevel) + "Started ...");
 			FileWriter writer = new FileWriter(outputPathAndFileName);
@@ -443,7 +443,7 @@ public class TSVManipulations {
 		try{ 
 			BufferedReader br;
 			//Reading posts and adding <repoId, totalNumberOfMembers> in a hashMap:
-			br = new BufferedReader(new FileReader(inputPath + "\\" + inputFileName)); 
+			br = new BufferedReader(new FileReader(inputPath + "/" + inputFileName)); 
 			System.out.println(MyUtils.indent(indentationLevel) + writeMessageStep + "- Parsing " + inputFileName + ":");
 			System.out.println(MyUtils.indent(indentationLevel+1) + "Started ...");
 			int error = 0, unmatchedRecords = 0;
@@ -601,7 +601,7 @@ public class TSVManipulations {
 		try{ 
 			BufferedReader br;
 			//Reading posts and adding <repoId, totalNumberOfMembers> in a hashMap:
-			br = new BufferedReader(new FileReader(inputPath + "\\" + inputFileName)); 
+			br = new BufferedReader(new FileReader(inputPath + "/" + inputFileName)); 
 			System.out.println(MyUtils.indent(indentationLevel) + writeMessageStep + "- Parsing " + inputFileName + ":");
 			System.out.println(MyUtils.indent(indentationLevel+1) + "Started ...");
 			int error = 0, unmatchedRecords = 0;
@@ -751,7 +751,7 @@ public class TSVManipulations {
 		try{ 
 			BufferedReader br;
 			//Reading posts and adding <repoId, totalNumberOfMembers> in a hashMap:
-			br = new BufferedReader(new FileReader(inputPath + "\\" + inputFileName)); 
+			br = new BufferedReader(new FileReader(inputPath + "/" + inputFileName)); 
 			System.out.println(MyUtils.indent(indentationLevel) + writeMessageStep + "- Parsing " + inputFileName + ":");
 			System.out.println(MyUtils.indent(indentationLevel+1) + "Started ...");
 			int errorInNumberOfFields = 0, unmatchedRecords = 0;
@@ -762,7 +762,7 @@ public class TSVManipulations {
 			String s, keyField, keyField1, keyField2;
 			br.readLine(); //header.
 			while ((s=br.readLine())!=null){
-				fields = s.split("\\t");
+				fields = s.split("/t");
 				if (fields.length != totalFieldsCount)
 					errorInNumberOfFields++;
 				else{
@@ -865,7 +865,7 @@ public class TSVManipulations {
 			System.out.println(MyUtils.indent(indentationLevel) + writeMessageStep + "- Writing file \"" + outputFileName + "\"");
 			System.out.println(MyUtils.indent(indentationLevel+1) +  "Started ...");
 			int i = 0;
-			FileWriter writer = new FileWriter(outputPath + "\\" + outputFileName);
+			FileWriter writer = new FileWriter(outputPath + "/" + outputFileName);
 			writer.append(titles[0]);
 			for (int j=1; j<totalFieldsCount; j++)
 				writer.append(Constants.TAB + titles[j]);
@@ -903,7 +903,7 @@ public class TSVManipulations {
 			System.out.println(MyUtils.indent(indentationLevel) + writeMessageStep + "- Writing file \"" + outputFileName + "\"");
 			System.out.println(MyUtils.indent(indentationLevel+1) +  "Started ...");
 			int i = 0;
-			FileWriter writer = new FileWriter(outputPath + "\\" + outputFileName);
+			FileWriter writer = new FileWriter(outputPath + "/" + outputFileName);
 			writer.append(titles[0]);
 			for (int j=1; j<totalFieldsCount; j++)
 				writer.append(Constants.TAB + titles[j]);
@@ -941,7 +941,7 @@ public class TSVManipulations {
 			System.out.println(MyUtils.indent(indentationLevel) + writeMessageStep + "- Writing file \"" + outputFileName + "\"");
 			System.out.println(MyUtils.indent(indentationLevel+1) +  "Started ...");
 			int i = 0;
-			FileWriter writer = new FileWriter(outputPath + "\\" + outputFileName);
+			FileWriter writer = new FileWriter(outputPath + "/" + outputFileName);
 			writer.append(titles + "\n");
 			for(Map.Entry<String,ArrayList<String[]>> entry : tm.entrySet()) {
 				for (int j=0; j<entry.getValue().size(); j++){
@@ -993,7 +993,7 @@ public class TSVManipulations {
 			System.out.println(MyUtils.indent(indentationLevel+1) +  "Started ...");
 			int i = 0;
 			int j = 0;
-			FileWriter writer = new FileWriter(outputPath + "\\" + outputFileName);
+			FileWriter writer = new FileWriter(outputPath + "/" + outputFileName);
 			writer.append(titles + "\n");
 			for(Map.Entry<String,TreeSet<String>> entry : ts.entrySet()) {
 				TreeSet<String> tempTS = entry.getValue();
@@ -1075,7 +1075,7 @@ public class TSVManipulations {
 			}//else.
 		try{ 
 			BufferedReader br;
-			br = new BufferedReader(new FileReader(inputPath + "\\" + inputFileName)); 
+			br = new BufferedReader(new FileReader(inputPath + "/" + inputFileName)); 
 			System.out.println(MyUtils.indent(indentationLevel) + writeMessageStep + "- Counting values for \"" + keyField + "\" (in \"" + inputFileName + "\"):");
 			System.out.println(MyUtils.indent(indentationLevel+1) +  "Started ...");
 			int error1=0, error2 = 0;
@@ -1185,7 +1185,7 @@ public class TSVManipulations {
 			}//else.
 		try{ 
 			BufferedReader br;
-			br = new BufferedReader(new FileReader(inputPath + "\\" + inputFileName)); 
+			br = new BufferedReader(new FileReader(inputPath + "/" + inputFileName)); 
 			System.out.println(MyUtils.indent(indentationLevel) + writeMessageStep + "- Sum(" + summingField + ") after grouping by \"" + keyField + "\" (in \"" + inputFileName + "\"):");
 			System.out.println(MyUtils.indent(indentationLevel+1) +  "Started ...");
 			int error = 0;
@@ -1270,7 +1270,7 @@ public class TSVManipulations {
 			String s, header, outputLine;
 
 			BufferedReader br;
-			br = new BufferedReader(new FileReader(primaryKeyInputPath + "\\" + primaryKeyInputFileName)); 
+			br = new BufferedReader(new FileReader(primaryKeyInputPath + "/" + primaryKeyInputFileName)); 
 			s = br.readLine();
 			titles = s.split(Constants.TAB);
 			for (int j=0; j< titles.length; j++){
@@ -1291,7 +1291,7 @@ public class TSVManipulations {
 			String[] theFKRecord, aPKRecord;
 
 			//Reading the header and substituting the foreign key field title:
-			br = new BufferedReader(new FileReader(foreignKeyInputPath + "\\" + foreignKeyInputFileName)); 
+			br = new BufferedReader(new FileReader(foreignKeyInputPath + "/" + foreignKeyInputFileName)); 
 			s = br.readLine();
 			titles = s.split(Constants.TAB);
 			for (int j=0; j< titles.length; j++){
@@ -1449,7 +1449,7 @@ public class TSVManipulations {
 			System.out.println(MyUtils.indent(indentationLevel+1) + writeMessageStep + "-1- Reading needed fields from \"" + inputTSV1 + "\" ...");
 			//Determining needed fields from TSV1: 
 			BufferedReader br1;
-			br1 = new BufferedReader(new FileReader(inputPath1 + "\\" + inputTSV1)); 
+			br1 = new BufferedReader(new FileReader(inputPath1 + "/" + inputTSV1)); 
 			s = br1.readLine();
 			String[] tSVTitles1 = s.split(Constants.TAB);
 			String[] neededTitles1 = t1NeededFields.split(Constants.TAB);
@@ -1481,7 +1481,7 @@ public class TSVManipulations {
 			//Determining needed fields from TSV2: 
 			System.out.println(MyUtils.indent(indentationLevel+1) + writeMessageStep + "-2- Reading needed fields from \"" + inputTSV2 + "\" ...");
 			BufferedReader br2;
-			br2 = new BufferedReader(new FileReader(inputPath2 + "\\" + inputTSV2)); 
+			br2 = new BufferedReader(new FileReader(inputPath2 + "/" + inputTSV2)); 
 			s = br2.readLine();
 			String[] tSVTitles2 = s.split(Constants.TAB);
 			String[] neededTitles2 = t2NeededFields.split(Constants.TAB);
@@ -1662,7 +1662,7 @@ public class TSVManipulations {
 
 			//Determining needed fields from TSV1: 
 			BufferedReader br1;
-			br1 = new BufferedReader(new FileReader(inputPath1 + "\\" + inputTSV1)); 
+			br1 = new BufferedReader(new FileReader(inputPath1 + "/" + inputTSV1)); 
 			String s1 = br1.readLine();
 			String[] tSVTitles1 = s1.split(Constants.TAB);
 			HashSet<Integer> neededFieldNumbers1 = new HashSet<Integer>();
@@ -1678,7 +1678,7 @@ public class TSVManipulations {
 
 			//Determining needed fields from TSV2: 
 			BufferedReader br2;
-			br2 = new BufferedReader(new FileReader(inputPath2 + "\\" + inputTSV2)); 
+			br2 = new BufferedReader(new FileReader(inputPath2 + "/" + inputTSV2)); 
 			String s2 = br2.readLine();
 			String[] tSVTitles2 = s2.split(Constants.TAB);
 			HashSet<Integer> neededFieldNumbers2 = new HashSet<Integer>();
@@ -1692,7 +1692,7 @@ public class TSVManipulations {
 			if (t2KeyNumber == Constants.ERROR)
 				result.errors = 1;
 
-			FileWriter writer = new FileWriter(outputPath + "\\" + outputTSV);
+			FileWriter writer = new FileWriter(outputPath + "/" + outputTSV);
 			int i = 0, numberOfRecordsFromT1Side_FilledWithNULL = 0, numberOfRecordsFromT2Side_FilledWithNULL = 0;
 			String[] fields1, fields2;
 			String newGeneratedLine;
@@ -1855,7 +1855,7 @@ public class TSVManipulations {
 			ArrayList<HashSet<Integer>> neededFieldNumbers = new ArrayList<HashSet<Integer>>(); 
 			for (int p=0; p<inputTSVs.size(); p++){
 				String fileName = inputTSVs.get(p);
-				BufferedReader aBR = new BufferedReader(new FileReader(iOPath + "\\" + fileName)); 
+				BufferedReader aBR = new BufferedReader(new FileReader(iOPath + "/" + fileName)); 
 				bRAL.add(aBR);
 				s.add(aBR.readLine());
 				ArrayList<String[]> tSVTitles = new ArrayList<String[]>();
@@ -1884,7 +1884,7 @@ public class TSVManipulations {
 				neededFieldNumbers.add(neededFieldNumbersForAFile);
 			}//for (p.
 
-			FileWriter writer = new FileWriter(iOPath + "\\" + outputTSVFileName);
+			FileWriter writer = new FileWriter(iOPath + "/" + outputTSVFileName);
 			int i = 0;
 			//			ArrayList<String[]> fields = new ArrayList<String[]>();
 			String newGeneratedLine;
@@ -2033,7 +2033,7 @@ public class TSVManipulations {
 		int linesWithError = 0;
 		HashSet<String> result = new HashSet<String>();
 		try{
-			BufferedReader br = new BufferedReader(new FileReader(inputPath + "\\" + inputFileName)); 
+			BufferedReader br = new BufferedReader(new FileReader(inputPath + "/" + inputFileName)); 
 			String s = br.readLine(); //Skip the title line.
 			while((s = br.readLine()) != null) {
 				String[] fields = s.split(Constants.TAB);
@@ -2080,7 +2080,7 @@ public class TSVManipulations {
 	//----------------------------------------------------------------------------------------------------------------------------------------
 	public static void main(String[] args) { 
 		//testing:
-		//		String iOPath = "C:\\2-Study\\Influentials\\Data Set\\MySQL-20150401\\TSV\\LanguagesStudy";
+		//		String iOPath = "C:/2-Study/Influentials/Data Set/MySQL-20150401/TSV/LanguagesStudy";
 		//		TSVManipulations.joinTwoTSVs(iOPath, "test1.tsv", iOPath, "test2.tsv", iOPath, "tempOut.tsv", 
 		//				"id", "userId", JoinType.FULL_JOIN, 
 		//				"id", "numberOfWatchersOfProjectsOfThisUser_1_JavaScript", SortOrder.ASCENDING_INTEGER, "0", 
@@ -2112,7 +2112,7 @@ public class TSVManipulations {
 		//				"Out.tsv", new String[]{"id", "userId", "userId", "userId"}, JoinType.FULL_JOIN, 
 		//				new String[]{"id", "numberOfWatchersOfProjectsOfThisUser_1_JavaScript", "numberOfWatchersOfProjectsOfThisUser_2_Ruby", "numberOfWatchersOfProjectsOfThisUser_3_Python"}, 
 		//				SortOrder.ASCENDING_INTEGER, "-1", true, 1, Constants.THIS_IS_REAL, 10000, "1");
-		//		MyUtils.renameFile("C:\\2-Study", "alaki.txt", "C:\\2-Study", "alaki2.txt", 1);
+		//		MyUtils.renameFile("C:/2-Study", "alaki.txt", "C:/2-Study", "alaki2.txt", 1);
 
 		//		//Was not run yet: 
 		//		mergeTwoTSVFieldsTogether(Constants.DATASET_DIRECTORY_GH_MongoDB_TSV, "repos.tsv",

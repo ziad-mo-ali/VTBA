@@ -55,7 +55,7 @@ public class DataPreparation {
 			MyUtils.println("-----------------------------------", indentationLevel+1);
 			MyUtils.println(MyUtils.concatTwoWriteMessageSteps(writeMessageStep, "1") + "- Reading bugs into a HashSet:", indentationLevel+1);
 			MyUtils.println("Started ...", indentationLevel+2);
-			BufferedReader br1 = new BufferedReader(new FileReader(inputPath + "\\bugs_complete.tsv")); 
+			BufferedReader br1 = new BufferedReader(new FileReader(inputPath + "/bugs_complete.tsv")); 
 			String s = br1.readLine(); //Skip the title line.
 			HashSet<String> bugs = new HashSet<String>();
 			int i = 0;
@@ -85,7 +85,7 @@ public class DataPreparation {
 			MyUtils.println("-----------------------------------", indentationLevel+1);
 			MyUtils.println(writeMessageStep + "-2- Reading pullResuests into a HashMap:", indentationLevel+1);
 			MyUtils.println("Started ...", indentationLevel+2);
-			BufferedReader br2 = new BufferedReader(new FileReader(inputPath + "\\PRs_complete.tsv")); 
+			BufferedReader br2 = new BufferedReader(new FileReader(inputPath + "/PRs_complete.tsv")); 
 			s = br2.readLine(); //Skip the title line.
 			HashSet<String> prs = new HashSet<String>();
 			i = 0;
@@ -115,13 +115,13 @@ public class DataPreparation {
 			MyUtils.println("-----------------------------------", 1);
 			MyUtils.println(writeMessageStep + "-3- Reading comment lines and saving each line in one of the three files:", indentationLevel+1);
 			MyUtils.println("Started ...", indentationLevel+2);
-			BufferedReader br3 = new BufferedReader(new FileReader(inputPath + "\\comments.tsv")); 
+			BufferedReader br3 = new BufferedReader(new FileReader(inputPath + "/comments.tsv")); 
 			s = br3.readLine(); //Skip the title line.
-			FileWriter writer1 = new FileWriter(outputPath+"\\bugComments_complete.tsv");
+			FileWriter writer1 = new FileWriter(outputPath+"/bugComments_complete.tsv");
 			writer1.append(s + "\n");
-			FileWriter writer2 = new FileWriter(outputPath+"\\PRComments_complete.tsv");
+			FileWriter writer2 = new FileWriter(outputPath+"/PRComments_complete.tsv");
 			writer2.append(s + "\n");
-			FileWriter writer3 = new FileWriter(outputPath+"\\commitComments_complete.tsv");
+			FileWriter writer3 = new FileWriter(outputPath+"/commitComments_complete.tsv");
 			writer3.append(s + "\n");
 			i = 0;
 			linesWithError = 0;
@@ -238,7 +238,7 @@ public class DataPreparation {
 			FileWriter[] writer = new FileWriter[5];// = {new FileWriter(""), new FileWriter(""), new FileWriter(""), new FileWriter(""), new FileWriter("")};
 			int[] numberOfAssignments = new int[Constants.NUMBER_OF_ASSIGNEE_TYPES];
 			for (int p=0; p<Constants.NUMBER_OF_ASSIGNEE_TYPES; p++){
-				writer[p]= new FileWriter(outputPath+"\\" + Constants.ASSIGNMENT_FILE_NAMES[p] + ".tsv");
+				writer[p]= new FileWriter(outputPath+"/" + Constants.ASSIGNMENT_FILE_NAMES[p] + ".tsv");
 				writer[p].append(titleLine + "\n");
 				numberOfAssignments[p] = 0;
 			}
@@ -296,7 +296,7 @@ public class DataPreparation {
 									//Checking "reference with specific keywords" in the related commit: 
 									String commitDate = commits.get(commitSHA)[2];
 									String commitMessage = commits.get(commitSHA)[3];
-									String regex = "(?:(?:clos|resolv)(?:e|es|ed|ing)|fix(?:es|ed|ing)?)(?:[\\s\\p{P}]*#[0-9]+)+";
+									String regex = "(?:(?:clos|resolv)(?:e|es|ed|ing)|fix(?:es|ed|ing)?)(?:[/s/p{P}]*#[0-9]+)+";
 									Pattern specificReferencePattern = Pattern.compile(regex);
 									Matcher specificReferenceMatcher = specificReferencePattern.matcher(commitMessage);
 
@@ -585,7 +585,7 @@ public class DataPreparation {
 				MyUtils.println(subStep+"-2- Checking obvious assignments of type \""+mainStep + "\" and saving the rest in temp file:", indentationLevel+2);
 				MyUtils.println("Started ...", indentationLevel+3);
 				//Note that each line corresponds an assignment in one of the assignment files:
-				FileWriter writer = new FileWriter(iOPath+"\\"+Constants.ASSIGNMENT_FILE_NAMES[i]+"-temp.tsv");
+				FileWriter writer = new FileWriter(iOPath+"/"+Constants.ASSIGNMENT_FILE_NAMES[i]+"-temp.tsv");
 				writer.append("projectId\tbugNumer\tdate\tlogin\tassignmentType\teventId\tcommitSHA\n");
 				DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
 				String dateOfLastLine = "2000-00-00T00:00:00.000Z";
@@ -815,10 +815,10 @@ public class DataPreparation {
 				
 				String s;
 				String[] fields;
-				BufferedReader br = new BufferedReader(new FileReader(iOPath + "\\" + files[i] + ".tsv"));
+				BufferedReader br = new BufferedReader(new FileReader(iOPath + "/" + files[i] + ".tsv"));
 				//Header:
 				s = br.readLine(); 
-				FileWriter writer = new FileWriter(iOPath + "\\" + files[i] + "-temp.tsv");
+				FileWriter writer = new FileWriter(iOPath + "/" + files[i] + "-temp.tsv");
 				int counter = 0;
 				if (files[i].equals("projects_complete"))
 					writer.append(s + titleSuffixForProjects + "\n");
@@ -831,15 +831,15 @@ public class DataPreparation {
 						errors++;
 					//Converting to lowerCase:
 					if (!fieldNumbersToBeConveredToLowerCase_separatedByDollar[i].equals(NO_CLEANING_IS_NEEDED)){
-						String[] fieldNumbersToBeConvertedToLowerCase = fieldNumbersToBeConveredToLowerCase_separatedByDollar[i].split("\\$");
+						String[] fieldNumbersToBeConvertedToLowerCase = fieldNumbersToBeConveredToLowerCase_separatedByDollar[i].split("/$");
 						for (int j=0; j<fieldNumbersToBeConvertedToLowerCase.length; j++)
 							fields[Integer.parseInt(fieldNumbersToBeConvertedToLowerCase[j])] = fields[Integer.parseInt(fieldNumbersToBeConvertedToLowerCase[j])].toLowerCase(); 
 					}
 					//Cleaning:
 					if (!fieldNumbersToBeCleaned_separatedByDollar[i].equals(NO_CLEANING_IS_NEEDED)){
-						String[] fieldNumbersToBeCleaned = fieldNumbersToBeCleaned_separatedByDollar[i].split("\\$");
+						String[] fieldNumbersToBeCleaned = fieldNumbersToBeCleaned_separatedByDollar[i].split("/$");
 						for (int j=0; j<fieldNumbersToBeCleaned.length; j++)
-							fields[Integer.parseInt(fieldNumbersToBeCleaned[j])] = fields[Integer.parseInt(fieldNumbersToBeCleaned[j])].toLowerCase().replaceAll("(\\w)\\.(?!\\S)", "$1 "); 
+							fields[Integer.parseInt(fieldNumbersToBeCleaned[j])] = fields[Integer.parseInt(fieldNumbersToBeCleaned[j])].toLowerCase().replaceAll("(/w)/.(?!/S)", "$1 "); 
 					}
 					//Filtering date and other stuff:
 					if (dateFieldNumbers[i]==NO_DATE_FIELD_TO_FILTER || (fields[dateFieldNumbers[i]].compareTo(DATE1)>0 && fields[dateFieldNumbers[i]].compareTo(DATE2)<0)){
@@ -1235,10 +1235,10 @@ public class DataPreparation {
 				MyUtils.println("Started ...", indentationLevel+3);
 
 				BufferedReader br;
-				br = new BufferedReader(new FileReader(generalInputPath + "\\" + fileNames[i] + ".tsv")); 
+				br = new BufferedReader(new FileReader(generalInputPath + "/" + fileNames[i] + ".tsv")); 
 				String title = br.readLine();
 
-				String[] sA = textualFields[i].split("\\$"); //StringArray.
+				String[] sA = textualFields[i].split("/$"); //StringArray.
 				HashSet<Integer> numbersOfTextualFields = new HashSet<Integer>();
 				for (int j=0; j<sA.length; j++)
 					numbersOfTextualFields.add(Integer.parseInt(sA[j]));
@@ -1250,7 +1250,7 @@ public class DataPreparation {
 						newTitle = StringManipulations.concatTwoStringsWithDelimiter(newTitle,  fields[j]+TAB+fields[j]+"_numberOfWords",  TAB);
 					else
 						newTitle = StringManipulations.concatTwoStringsWithDelimiter(newTitle,  fields[j],  TAB);
-				FileWriter writer = new FileWriter(outputPath + "\\" + fileNames[i] + ".tsv");
+				FileWriter writer = new FileWriter(outputPath + "/" + fileNames[i] + ".tsv");
 				writer.append(newTitle + "\n");
 
 				HashMap<String, Integer> correctedTags2 = new HashMap<String, Integer>();
@@ -1284,11 +1284,11 @@ public class DataPreparation {
 
 				br.close();
 				writer.flush();    writer.close();
-				writeCorrectedTags("4-wrods tags\tNumber", correctedTags4, outputPath + "\\" + CORRECTED_TAGS_FILE_NAME_PREFIX + "_" + fileNames[i] + ".tsv", false, localFMR, indentationLevel+2);
+				writeCorrectedTags("4-wrods tags\tNumber", correctedTags4, outputPath + "/" + CORRECTED_TAGS_FILE_NAME_PREFIX + "_" + fileNames[i] + ".tsv", false, localFMR, indentationLevel+2);
 				totalFMR = MyUtils.addFileManipulationResults(totalFMR, localFMR);
-				writeCorrectedTags("3-wrods tags\tNumber", correctedTags3, outputPath + "\\" + CORRECTED_TAGS_FILE_NAME_PREFIX + "_" + fileNames[i] + ".tsv", true, localFMR, indentationLevel+2);
+				writeCorrectedTags("3-wrods tags\tNumber", correctedTags3, outputPath + "/" + CORRECTED_TAGS_FILE_NAME_PREFIX + "_" + fileNames[i] + ".tsv", true, localFMR, indentationLevel+2);
 				totalFMR = MyUtils.addFileManipulationResults(totalFMR, localFMR);
-				writeCorrectedTags("2-wrods tags\tNumber", correctedTags2, outputPath + "\\" + CORRECTED_TAGS_FILE_NAME_PREFIX + "_" + fileNames[i] + ".tsv", true, localFMR, indentationLevel+2);
+				writeCorrectedTags("2-wrods tags\tNumber", correctedTags2, outputPath + "/" + CORRECTED_TAGS_FILE_NAME_PREFIX + "_" + fileNames[i] + ".tsv", true, localFMR, indentationLevel+2);
 				totalFMR = MyUtils.addFileManipulationResults(totalFMR, localFMR);
 				
 				if (errors > 0)
@@ -1389,15 +1389,15 @@ public class DataPreparation {
 				MyUtils.println("Started ...", indentationLevel+3);
 
 				BufferedReader br;
-				br = new BufferedReader(new FileReader(generalInputPath + "\\" + fileNames[i] + ".tsv")); 
+				br = new BufferedReader(new FileReader(generalInputPath + "/" + fileNames[i] + ".tsv")); 
 				String title = br.readLine();
 
-				String[] sA = textualFields[i].split("\\$"); //sA: StringArray.
+				String[] sA = textualFields[i].split("/$"); //sA: StringArray.
 				HashSet<Integer> numbersOfTextualFields = new HashSet<Integer>();
 				for (int j=0; j<sA.length; j++)
 					numbersOfTextualFields.add(Integer.parseInt(sA[j]));
 
-				FileWriter writer = new FileWriter(outputPath + "\\" + fileNames[i] + ".tsv");
+				FileWriter writer = new FileWriter(outputPath + "/" + fileNames[i] + ".tsv");
 				writer.append(title + "\n");
 
 				String[] fields;
@@ -1671,7 +1671,7 @@ public class DataPreparation {
 	//------------------------------------------------------------------------------------------------------------------------
 	//------------------------------------------------------------------------------------------------------------------------
 	static boolean containsTwoOrMoreSpecialCharactersAfterEachOther(String s){//Special characters: +-.# 
-		return s.matches(".*[\\#\\-\\+\\.][\\#\\-\\+\\.].*");
+		return s.matches(".*[/#/-/+/.][/#/-/+/.].*");
 	}
 	//------------------------------------------------------------------------------------------------------------------------
 	//------------------------------------------------------------------------------------------------------------------------
@@ -1711,7 +1711,7 @@ public class DataPreparation {
 			try{ 
 				BufferedReader br;
 				//Reading posts and adding <repoId, totalNumberOfMembers> in a hashMap:
-				br = new BufferedReader(new FileReader(inputPath + "\\" + textualElementsInputFiles[j]+".tsv")); 
+				br = new BufferedReader(new FileReader(inputPath + "/" + textualElementsInputFiles[j]+".tsv")); 
 				MyUtils.println(MyUtils.concatTwoWriteMessageSteps(writeMessageStep,"2-")+Integer.toString(j+1)+"- Processing "+ textualElementsInputFiles[j]+".tsv:", indentationLevel+2);
 				MyUtils.println("Started ...", indentationLevel+3);
 				
@@ -2134,7 +2134,7 @@ public class DataPreparation {
 					LongClass maxNumberOfOccurrences = new LongClass(0);
 
 					//Determining all files (and their paths) in this project:
-					listFiles(inputPath+"\\"+projectFolder, files);
+					listFiles(inputPath+"/"+projectFolder, files);
 					//Reading the files in the project and counting the occurrences:
 					MyUtils.println("Total # of files to traverse: " + files.size(), indentationLevel+3);
 					
@@ -2326,12 +2326,12 @@ public class DataPreparation {
 			MyUtils.println(writeMessageStep+"2-Reading all bugs and writing them in appropriate file if they are assigned:", indentationLevel+1);
 			MyUtils.println("Started ...", indentationLevel+2);
 			BufferedReader br;
-			br = new BufferedReader(new FileReader(iOPath + "\\" + bugsFileName + ".tsv")); 
+			br = new BufferedReader(new FileReader(iOPath + "/" + bugsFileName + ".tsv")); 
 			String title = br.readLine();
 			FileWriter[] writer = new FileWriter[5];
 			int[] numberOfBugs = {0, 0, 0, 0, 0};
 			for (int j=0; j<Constants.NUMBER_OF_ASSIGNEE_TYPES; j++){
-				writer[j]= new FileWriter(iOPath+"\\" + bugsFileName + "-" + Constants.ASSIGNED_BUGS_TYPES__SHORT_DESCRIPTIONS[j] + ".tsv");
+				writer[j]= new FileWriter(iOPath+"/" + bugsFileName + "-" + Constants.ASSIGNED_BUGS_TYPES__SHORT_DESCRIPTIONS[j] + ".tsv");
 				writer[j].append(title + "\n");
 				numberOfBugs[j] = 0;
 			}
@@ -2393,10 +2393,10 @@ public class DataPreparation {
 			MyUtils.println(MyUtils.concatTwoWriteMessageSteps(writeMessageStep, "1")+"- Doing the fix in a temp file:", indentationLevel+1);
 			MyUtils.println("Started ...", indentationLevel+2);
 			BufferedReader br;
-			br = new BufferedReader(new FileReader(iOPath + "\\" + projectsInputFileName + ".tsv")); 
+			br = new BufferedReader(new FileReader(iOPath + "/" + projectsInputFileName + ".tsv")); 
 			String title = br.readLine();
 
-			FileWriter writer = new FileWriter(iOPath + "\\" + projectsInputFileName + "-temp.tsv");
+			FileWriter writer = new FileWriter(iOPath + "/" + projectsInputFileName + "-temp.tsv");
 			writer.append(title + "\n");
 
 			String[] fields;
@@ -2502,10 +2502,10 @@ public class DataPreparation {
 				MyUtils.println(subStep+"- Processing file \""+fileNames[j]+".tsv\":", indentationLevel+2);
 				MyUtils.println("Started ...", indentationLevel+3);
 				
-				BufferedReader br1 = new BufferedReader(new FileReader(inputPath_V1+"\\"+fileNames[j]+".tsv")); 
-				FileWriter writer2 = new FileWriter(outputPath_V2+"\\"+fileNames[j]+".tsv");
-				FileWriter writer3 = new FileWriter(outputPath_V3+"\\"+fileNames[j]+".tsv");
-				FileWriter writer4 = new FileWriter(outputPath_V4+"\\"+fileNames[j]+".tsv");
+				BufferedReader br1 = new BufferedReader(new FileReader(inputPath_V1+"/"+fileNames[j]+".tsv")); 
+				FileWriter writer2 = new FileWriter(outputPath_V2+"/"+fileNames[j]+".tsv");
+				FileWriter writer3 = new FileWriter(outputPath_V3+"/"+fileNames[j]+".tsv");
+				FileWriter writer4 = new FileWriter(outputPath_V4+"/"+fileNames[j]+".tsv");
 				//Title line:
 				String s = br1.readLine(); 
 				writer2.append(s + "\n");
@@ -2579,19 +2579,19 @@ public class DataPreparation {
 		//
 	public static void prepareCompleteFinalData(){
 		//"occurrences.tsv":
-		final String DATASET_DIRECTORY_SO_TSV = Constants.DATASET_OVERAL_DIRECTORY + "\\SO\\20161110\\3-TSV-Cleaned";
+		final String DATASET_DIRECTORY_SO_TSV = Constants.DATASET_OVERAL_DIRECTORY + "/SO/20161110/3-TSV-Cleaned";
 		//6 json files; "bugs", "comments", "commits", "githubissues", "githubprofiles" and "projects":
-		final String DATASET_DIRECTORY_GH_JSON = Constants.DATASET_OVERAL_DIRECTORY + "\\GH\\AtLeastUpTo20161001\\1-JSON";
+		final String DATASET_DIRECTORY_GH_JSON = Constants.DATASET_OVERAL_DIRECTORY + "/GH/AtLeastUpTo20161001/1-JSON";
 		//projects.csv:
-		final String DATASET_DIRECTORY_GH_CSV = Constants.DATASET_OVERAL_DIRECTORY + "\\GH\\AtLeastUpTo20161001\\1-CSV";
+		final String DATASET_DIRECTORY_GH_CSV = Constants.DATASET_OVERAL_DIRECTORY + "/GH/AtLeastUpTo20161001/1-CSV";
 		//bugEvents.tsv:
-		final String DATASET_DIRECTORY_GH_EVENTS__DOWNLOADED_BY__EGIT_GITHUB__PROJECT = Constants.DATASET_OVERAL_DIRECTORY + "\\GH\\AtLeastUpTo20161001\\1-TSV";
+		final String DATASET_DIRECTORY_GH_EVENTS__DOWNLOADED_BY__EGIT_GITHUB__PROJECT = Constants.DATASET_OVERAL_DIRECTORY + "/GH/AtLeastUpTo20161001/1-TSV";
 		
 		//Temporary folders (can be deleted, or kept for seeing/following the process. Also some reports/statistics about corrected previously misspelled tags are saved in the last file:
-		final String TEMP_DIRECTORY = Constants.DATASET_OVERAL_DIRECTORY + "\\GH\\AtLeastUpTo20161001\\4-1-TSV-ATempFolder";
-		final String DATASET_DIRECTORY_GH_4_TSV_TEMP1 = TEMP_DIRECTORY + "\\Temp1";
-		final String DATASET_DIRECTORY_GH_4_TSV_TEMP2 = TEMP_DIRECTORY + "\\Temp2";
-		final String DATASET_DIRECTORY_GH_4_TSV_TEMP3 = TEMP_DIRECTORY + "\\Temp3";
+		final String TEMP_DIRECTORY = Constants.DATASET_OVERAL_DIRECTORY + "/GH/AtLeastUpTo20161001/4-1-TSV-ATempFolder";
+		final String DATASET_DIRECTORY_GH_4_TSV_TEMP1 = TEMP_DIRECTORY + "/Temp1";
+		final String DATASET_DIRECTORY_GH_4_TSV_TEMP2 = TEMP_DIRECTORY + "/Temp2";
+		final String DATASET_DIRECTORY_GH_4_TSV_TEMP3 = TEMP_DIRECTORY + "/Temp3";
 		int negligibleErrorsRelatedToBrokenLinesInProjects_CSV = 1;
 		FileManipulationResult fMR = new FileManipulationResult();
 		FileManipulationResult totalFMR = new FileManipulationResult();
@@ -2756,7 +2756,7 @@ public class DataPreparation {
 //		//First, convert the XML SO data set to TSV:
 //		XMLParser.xmlToTSV(Constants.DATASET_DIRECTORY_SO_1_XML_EXTERNAL, "Posts.xml", Constants.DATASET_DIRECTORY_SO_2_TSV, "Posts.tsv",  
 //		"Id$PostTypeId$OwnerUserId$ParentId$Score$[]Tags$CreationDate$AnswerCount$Title", 
-//		"&lt;", "&gt;", "\\&lt\\;", "\\&gt\\;", 
+//		"&lt;", "&gt;", "/&lt/;", "/&gt/;", 
 //		"Title",
 //		500000, 0, Constants.THIS_IS_REAL, "1");
 
@@ -2866,9 +2866,9 @@ public class DataPreparation {
 		
 //		String s = "java html. .net node.js php.";
 //		System.out.println(s);
-//		s = s.replaceAll("(\\w)\\.(?!\\S)", "$1 ");
+//		s = s.replaceAll("(/w)/.(?!/S)", "$1 ");
 //		System.out.println(s);
-////		s = s.replaceAll(     "(?=\\S+)\\.(?!\\S)", " ");
+////		s = s.replaceAll(     "(?=/S+)/.(?!/S)", " ");
 //		
 				
 		prepareDataFiles();
@@ -2879,8 +2879,8 @@ public class DataPreparation {
 //		if (StringManipulations.specificFieldsOfTwoStringArraysAreEqual(s1, s2, "0$1$2$3"))
 //		System.out.println("yes");    else		System.out.println("no");
 		
-//		String[] fieldNumbersToBeCleaned = "4".split("\\$");    System.out.println(fieldNumbersToBeCleaned[0]);    System.out.println(fieldNumbersToBeCleaned[1]);    String s = ". abc. d. ef . ghi ... jk.";
-//		s = s.replaceAll("(?=\\S+)\\.(?!\\S)", " ");
+//		String[] fieldNumbersToBeCleaned = "4".split("/$");    System.out.println(fieldNumbersToBeCleaned[0]);    System.out.println(fieldNumbersToBeCleaned[1]);    String s = ". abc. d. ef . ghi ... jk.";
+//		s = s.replaceAll("(?=/S+)/.(?!/S)", " ");
 //		System.out.println(s);
 	}
 	//------------------------------------------------------------------------------------------------------------------------

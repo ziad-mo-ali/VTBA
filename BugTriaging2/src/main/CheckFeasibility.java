@@ -22,8 +22,8 @@ import utils.Constants.LogicalOperation;
 public class CheckFeasibility {
 	//------------------------------------------------------------------------------------------------------------------------
 	//------------------------------------------------------------------------------------------------------------------------
-	private static final String DATASET_DIRECTORY_SO_TSV = "C:\\2-Study\\BugTriaging2\\Data Set\\SO\\20161110\\3-TSV-Cleaned";
-	private static final String DATASET_DIRECTORY_GH_TSV = "C:\\2-Study\\BugTriaging2\\Data Set\\GH\\AtLeastUpTo20161001\\2-TSV\\3- 13 projects + 2 project families (13 + 6 more projects)";
+	private static final String DATASET_DIRECTORY_SO_TSV = "C:/2-Study/BugTriaging2/Data Set/SO/20161110/3-TSV-Cleaned";
+	private static final String DATASET_DIRECTORY_GH_TSV = "C:/2-Study/BugTriaging2/Data Set/GH/AtLeastUpTo20161001/2-TSV/3- 13 projects + 2 project families (13 + 6 more projects)";
 	public static final String COMBINED_KEY_SEPARATOR = Constants.COMBINED_KEY_SEPARATOR;
 	//------------------------------------------------------------------------------------------------------------------------
 	//------------------------------------------------------------------------------------------------------------------------
@@ -64,7 +64,7 @@ public class CheckFeasibility {
 			MyUtils.println("-----------------------------------", 1);
 			MyUtils.println("2- Reading projects into a HashMap:", 1);
 			MyUtils.println("Started ...", 2);
-			BufferedReader br2 = new BufferedReader(new FileReader(DATASET_DIRECTORY_GH_TSV + "\\projects_complete.tsv")); 
+			BufferedReader br2 = new BufferedReader(new FileReader(DATASET_DIRECTORY_GH_TSV + "/projects_complete.tsv")); 
 			String s = br2.readLine(); //Skip the title line.
 			HashMap<String, String> projects = new HashMap<String, String>(); //: projects and the tags available in their title/body/listOfTopLanguages.
 			String fields[];
@@ -117,7 +117,7 @@ public class CheckFeasibility {
 			MyUtils.println("-----------------------------------", 1);
 			MyUtils.println("3- Reading bugs into a HashMap:", 1);
 			MyUtils.println("Started ...", 2);
-			BufferedReader br3 = new BufferedReader(new FileReader(DATASET_DIRECTORY_GH_TSV + "\\bugs_complete.tsv")); 
+			BufferedReader br3 = new BufferedReader(new FileReader(DATASET_DIRECTORY_GH_TSV + "/bugs_complete.tsv")); 
 			s = br3.readLine(); //Skip the title line.
 			HashMap<String, String> bugs = new HashMap<String, String>();
 			i = 0;
@@ -152,7 +152,7 @@ public class CheckFeasibility {
 			MyUtils.println("-----------------------------------", 1);
 			MyUtils.println("4- Reading pullResuests into a HashMap:", 1);
 			MyUtils.println("Started ...", 2);
-			BufferedReader br4 = new BufferedReader(new FileReader(DATASET_DIRECTORY_GH_TSV + "\\PRs_complete.tsv")); 
+			BufferedReader br4 = new BufferedReader(new FileReader(DATASET_DIRECTORY_GH_TSV + "/PRs_complete.tsv")); 
 			s = br4.readLine(); //Skip the title line.
 			HashMap<String, String> prs = new HashMap<String, String>();
 			i = 0;
@@ -187,7 +187,7 @@ public class CheckFeasibility {
 			MyUtils.println("-----------------------------------", 1);
 			MyUtils.println("5- Reading commits into a HashMap:", 1);
 			MyUtils.println("Started ...", 2);
-			BufferedReader br5 = new BufferedReader(new FileReader(DATASET_DIRECTORY_GH_TSV + "\\commits.tsv")); 
+			BufferedReader br5 = new BufferedReader(new FileReader(DATASET_DIRECTORY_GH_TSV + "/commits.tsv")); 
 			s = br5.readLine(); //Skip the title line.
 			HashMap<String, String> commits = new HashMap<String, String>();
 			i = 0;
@@ -220,7 +220,7 @@ public class CheckFeasibility {
 			MyUtils.println("-----------------------------------", 1);
 			MyUtils.println("6- Reading comments (of bugs, PR's and commits) file into a HashMap:", 1);
 			MyUtils.println("Started ...", 2);
-			BufferedReader br6 = new BufferedReader(new FileReader(DATASET_DIRECTORY_GH_TSV + "\\comments.tsv")); 
+			BufferedReader br6 = new BufferedReader(new FileReader(DATASET_DIRECTORY_GH_TSV + "/comments.tsv")); 
 			s = br6.readLine(); //Skip the title line.
 			HashMap<String, String> bugComments = new HashMap<String, String>();
 			HashMap<String, String> prComments = new HashMap<String, String>();
@@ -286,7 +286,7 @@ public class CheckFeasibility {
 			MyUtils.println("7- Checking bugs and bugs+theirComments (the two HashMaps that have been read) and counting the number of tags in them and writing them:", 1);
 			MyUtils.println("Started ...", 2);
 
-			FileWriter writer1 = new FileWriter(DATASET_DIRECTORY_GH_TSV+"\\numberOfTagsInEachBug.tsv");
+			FileWriter writer1 = new FileWriter(DATASET_DIRECTORY_GH_TSV+"/numberOfTagsInEachBug.tsv");
 			writer1.append("projectId\tbugNumber\t#ofTagsInProjectInfo\t#ofTagsInBug\t#ofTagsInBugComments\t#ofTagsInProjectInfo+Bug\t#ofTagsInProjectInfo+Bug+CommentsOfTheBug\tprojectTitle\tbug\tbugComments\n");
 			i = 0;
 			int bugCommentsNotFound = 0;
@@ -356,7 +356,7 @@ public class CheckFeasibility {
 			MyUtils.println("8- Checking PRs and PRs+theirComments (the two HashMaps that have been read) and counting the number of tags in them and writing them:", 1);
 			MyUtils.println("Started ...", 2);
 
-			FileWriter writer2 = new FileWriter(DATASET_DIRECTORY_GH_TSV+"\\numberOfTagsInEachPR.tsv");
+			FileWriter writer2 = new FileWriter(DATASET_DIRECTORY_GH_TSV+"/numberOfTagsInEachPR.tsv");
 			writer2.append("projectId\tPRNumber\t#ofTagsInPR\t#ofTagsInPRComments\t#ofTagsInPR+CommentsOfThePR\tPR\tprComments\n");
 			i = 0;
 			int prCommentsNotFound = 0;
@@ -417,7 +417,7 @@ public class CheckFeasibility {
 			MyUtils.println("9- Checking commits and commits+theirComments (the two HashMaps that have been read) and counting the number of tags in them and writing them:", 1);
 			MyUtils.println("Started ...", 2);
 
-			FileWriter writer3 = new FileWriter(DATASET_DIRECTORY_GH_TSV+"\\numberOfTagsInEachCommit.tsv");
+			FileWriter writer3 = new FileWriter(DATASET_DIRECTORY_GH_TSV+"/numberOfTagsInEachCommit.tsv");
 			writer3.append("commitSHA\t#ofTagsInComit\t#ofTagsInCommitComments\t#ofTagsIncommit+CommentsOfTheCommit\tcommit\tcommitComments\n");
 			i = 0;
 			int commitCommentsNotFound = 0;
@@ -481,7 +481,7 @@ public class CheckFeasibility {
 		try{
 			//1: Read all commits:
 			TreeMap<String, String[]> commits = TSVManipulations.readUniqueKeyAndItsValueFromTSV(
-					DATASET_DIRECTORY_GH_TSV, "\\commits.tsv", null, 
+					DATASET_DIRECTORY_GH_TSV, "/commits.tsv", null, 
 					4, 6, "1$5", LogicalOperation.NO_CONDITION, 0, ConditionType.NOTHING, "", FieldType.NOT_IMPORTANT, 0, ConditionType.NOTHING, "", FieldType.NOT_IMPORTANT, 
 					true, 200000, 1, Constants.THIS_IS_REAL, "1");
 
@@ -513,7 +513,7 @@ public class CheckFeasibility {
 					boolean isReferencingToAPR = false;
 					boolean isReferencingToABug = false;
 					
-					String regex = "(?:(?:clos|resolv)(?:e|es|ed|ing)|fix(?:es|ed|ing)?)(?:[\\s\\p{P}]*#[0-9]+)+";
+					String regex = "(?:(?:clos|resolv)(?:e|es|ed|ing)|fix(?:es|ed|ing)?)(?:[/s/p{P}]*#[0-9]+)+";
 					Pattern specificReferencePattern = Pattern.compile(regex);
 					Matcher specificReferenceMatcher = specificReferencePattern.matcher(commitMessage);
 					
@@ -592,7 +592,7 @@ public class CheckFeasibility {
 //				0, ConditionType.NOTHING, "", FieldType.NOT_IMPORTANT, 
 //				0, ConditionType.NOTHING, "", FieldType.NOT_IMPORTANT, true, 10000, 0, Constants.THIS_IS_REAL, "");
 		
-		TreeMap<String, String[]> bugs = TSVManipulations.readUniqueKeyAndItsValueFromTSV("C:\\2-Study\\BugTriaging2\\Data Set\\GH\\AtLeastUpTo20161001\\4-TSV-ATempFolder\\Temp2", "7-projects.tsv", null, 
+		TreeMap<String, String[]> bugs = TSVManipulations.readUniqueKeyAndItsValueFromTSV("C:/2-Study/BugTriaging2/Data Set/GH/AtLeastUpTo20161001/4-TSV-ATempFolder/Temp2", "7-projects.tsv", null, 
 				0, 13, "2", LogicalOperation.NO_CONDITION, 
 				0, ConditionType.NOTHING, "", FieldType.NOT_IMPORTANT, 
 				0, ConditionType.NOTHING, "", FieldType.NOT_IMPORTANT, true, 10000, 0, Constants.THIS_IS_REAL, "");
@@ -692,7 +692,7 @@ public class CheckFeasibility {
 		
 //		System.out.println("Testing...");
 //		String commitMessage = "This fixes #23 also #3 fixed#24 fix #25, #26 resolves #27 #28#29 resolved#30 #31 ,  #32. Also see #33";
-//		String regex = "(?:(?:clos|resolv)(?:e|es|ed|ing)|fix(?:es|ed|ing)?)(?:[\\s\\p{P}]*#[0-9]+)+";
+//		String regex = "(?:(?:clos|resolv)(?:e|es|ed|ing)|fix(?:es|ed|ing)?)(?:[/s/p{P}]*#[0-9]+)+";
 ////		String regex = "clos(e|es|ed|ing)([ ,]*#[0-9]+)+ ?|fix(es|ed|ing)?([ ,]*#[0-9]+)+ ?|resolv(e|es|ed|ing)([ ,]*#[0-9]+)+ ?";
 //		Pattern p = Pattern.compile(regex);
 //		Matcher m = p.matcher(commitMessage);
@@ -709,8 +709,8 @@ public class CheckFeasibility {
 		
 //        String commitMessage = "This fixes #23 fixed#24 fix #25, #26 "
 //                + "resolves #27 #28#29 resolved#30 #31 ,  #32. Also see #33";
-//        String regexBugReference    = "(?<oneBug>#\\d+)"; 
-//        String regexBugReferences   = "(?<someBugs>(\\s*,*\\s*" + regexBugReference + "\\s*)+)"; 
+//        String regexBugReference    = "(?<oneBug>#/d+)"; 
+//        String regexBugReferences   = "(?<someBugs>(/s*,*/s*" + regexBugReference + "/s*)+)"; 
 //        String regex = 
 //                "(?<oneCase>(?<resolution>clos(e|es|ed|ing)|fix(|es|ed|ing)|resolv(e|es|ed|ing))"   
 //                        + regexBugReferences

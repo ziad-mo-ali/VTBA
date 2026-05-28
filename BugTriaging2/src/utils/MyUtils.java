@@ -155,7 +155,7 @@ public class MyUtils {
 		FileManipulationResult result = new FileManipulationResult();
 		int numberOfTemporaryFilesDeleted = 0;
 		for (int i=0; i<temporaryFilesToBeDeleted.length; i++){
-			File file = new File(path+"\\"+temporaryFilesToBeDeleted[i]);
+			File file = new File(path+"/"+temporaryFilesToBeDeleted[i]);
 			if (file.exists()){
 				file.delete();
 				numberOfTemporaryFilesDeleted++;
@@ -173,8 +173,8 @@ public class MyUtils {
 	public static FileManipulationResult copyFile(String inputPath, String inputFileName, String outputPath, String outputFileName, int indentationLevel, String writeMessageStep) {
 		FileManipulationResult result = new FileManipulationResult();
 		MyUtils.println(writeMessageStep + "- Copying file \"" + inputFileName + "\" to \"" + outputFileName + "\"", indentationLevel);
-		File source = new File(inputPath+"\\"+inputFileName);
-		File destination = new File(outputPath+"\\"+outputFileName);
+		File source = new File(inputPath+"/"+inputFileName);
+		File destination = new File(outputPath+"/"+outputFileName);
         FileChannel inputChannel = null;
         FileChannel outputChannel = null;
         FileInputStream fisIn = null;
@@ -217,8 +217,8 @@ public class MyUtils {
 	public static FileManipulationResult renameFile(String inputPath, String inputFileName, String outputPath, String outputFileName, int indentationLevel, String writeMessageStep){
 		MyUtils.println(writeMessageStep + "- Renaming file \"" + inputFileName + "\" to \"" + outputFileName + "\"", indentationLevel);
 		FileManipulationResult result = new FileManipulationResult();
-		File oldfile = new File(inputPath+"\\"+inputFileName);
-		File newfile = new File(outputPath+"\\"+outputFileName);
+		File oldfile = new File(inputPath+"/"+inputFileName);
+		File newfile = new File(outputPath+"/"+outputFileName);
 		if(!oldfile.renameTo(newfile)){
 			result.errors++;
         	MyUtils.println("Error in rename.", indentationLevel);        
