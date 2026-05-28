@@ -790,7 +790,8 @@ public class Algorithm {//test 9
 												"p",
 												"bc",
 												"cC",
-												"pC"
+												"pC",
+												"cb" /*codebert*/
 										};
 
 										//Determining the experiment title automatically based on the chosen evidence types (for the developer) and the algorithm methodology:
