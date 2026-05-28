@@ -204,7 +204,7 @@ public class Algorithm {//test 9
 		// â”€â”€ CodeBERT evidence (only for the new experiment type) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 		if (generalExperimentType == GeneralExperimentType.CALCULATE_VTBA_CODEBERT) {
 			String codebertTSVPath = inputPath + "/codebert_evidence.tsv"; // ← configure
-			double confidenceThreshold = 0.5;                              // ← configure
+			double confidenceThreshold = 0.05;                              // ← configure
 			AlgPrep.readAndIndexCodeBERTEvidence(
 					codebertTSVPath,
 					projects,
@@ -587,8 +587,10 @@ public class Algorithm {//test 9
 			for (BTOption2_w option2_w: BTOption2_w.values()){//: Term weighting
 //				if (option2_w != BTOption2_w.USE_TERM_WEIGHTING)
 //					continue;
-				if (option2_w != BTOption2_w.NO_TERM_WEIGHTING)
-					continue;
+				// if (option2_w != BTOption2_w.NO_TERM_WEIGHTING)
+				// 	continue;
+				if (option2_w != BTOption2_w.USE_TERM_WEIGHTING)
+    				continue;
 				for (BTOption3_TF option3_TF: BTOption3_TF.values()){//: TF formula.
 //					if (option3_TF != BTOption3_TF.LOG_BASED) //In our previous experiment (results stored in Old4-DecidingAbout4Options folder) it was shown that this (BTOption3.LOG_BASED) has the best performance.
 //						continue;
@@ -621,8 +623,10 @@ public class Algorithm {//test 9
 //										continue; 
 									for (BTOption8_recency option8_recency: BTOption8_recency.values()){
 
-										if (option8_recency != BTOption8_recency.RECENCY1)
-        									continue;
+										// if (option8_recency != BTOption8_recency.RECENCY1)
+        								// 	continue;
+										if (option8_recency != BTOption8_recency.RECENCY2)
+    										continue;
 
 										//"bTD": bugTitleDescription		"pTD: projectTitleDescription		"mL": mainLanguages
 //										if (option8_recency != BTOption8_recency.NO_RECENCY)
