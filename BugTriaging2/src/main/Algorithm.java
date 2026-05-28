@@ -1,4 +1,4 @@
-package main;
+﻿package main;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -46,6 +46,7 @@ public class Algorithm {//test 9
 	public static final int INDEX_OF__EVIDENCE_TYPE__BUG_COMMENT = 3;
 	public static final int INDEX_OF__EVIDENCE_TYPE__COMMIT_COMMENT = 4;
 	public static final int INDEX_OF__EVIDENCE_TYPE__PR_COMMENT = 5;
+	public static final int INDEX_OF__EVIDENCE_TYPE__CODEBERT = 6;
 
 	// In the following method, bug assignment is experimented and the results are shown. Also summary is printed in output file <"results-"+currentDateTime.txt>.
 	public static void bugAssignment(String inputPath, String nodeWeightsInputPath, String nodeWeightsFileName, 
@@ -199,6 +200,22 @@ public class Algorithm {//test 9
 				generalExperimentType, 
 				wrapOutputInLines, showProgressInterval*100, indentationLevel+1, MyUtils.concatTwoWriteMessageSteps(writeMessageStep, "6"));
 		totalFMR = MyUtils.addFileManipulationResults(totalFMR, localFMR);
+
+		// â”€â”€ CodeBERT evidence (only for the new experiment type) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+		if (generalExperimentType == GeneralExperimentType.CALCULATE_VTBA_CODEBERT) {
+			String codebertTSVPath = inputPath + "/codebert_evidence.tsv"; // ← configure
+			double confidenceThreshold = 0.5;                              // ← configure
+			AlgPrep.readAndIndexCodeBERTEvidence(
+					codebertTSVPath,
+					projects,
+					projectsAndTheirAssignments__AL_forDifferentAssignmetTypes,
+					assignmentTypesToTriage,
+					projectId_Login_Tags_TypesAndTheirEvidence,
+					confidenceThreshold,
+					localFMR,
+					indentationLevel + 1);
+			totalFMR = MyUtils.addFileManipulationResults(totalFMR, localFMR);
+		}
 
 		String detailedAssignmentResultsSubfolderName = AlgPrep.createFolderForResults(outputPath+"\\"+Constants.ASSIGNMENT_RESULTS_OVERAL_FOLDER_NAME, experimentTitle, isMainRun, localFMR, indentationLevel);
 		totalFMR = MyUtils.addFileManipulationResults(totalFMR, localFMR);
@@ -518,16 +535,17 @@ public class Algorithm {//test 9
 				1/*1=YES, 0=NO*//*T5_ALL_TYPES*/, 
 				}; 
 
-		//Evidence types to consider: [bugAssignment, commit, PR, bugComment, commitComment, PRComment]
+		//Evidence types to consider: [bugAssignment, commit, PR, bugComment, commitComment, PRComment, codebert]
 		int[] evidenceTypes = new int[]{
-				1/*1=YES, 0=NO*//*assignedBug=b*/, 
+				0/*1=YES, 0=NO*//*assignedBug=b*/, 
 				0/*1=YES, 0=NO*//*commit=c*/, 
 				0/*1=YES, 0=NO*//*PR=p*/, 
 				0/*1=YES, 0=NO*//*bugComment=bC*/, 
 				0/*1=YES, 0=NO*//*commitComment=cC*/, 
-				0/*1=YES, 0=NO*//*PRComment=pC*/
+				0/*1=YES, 0=NO*//*PRComment=pC*/, 
+				1/*1=YES, 0=NO*//*codebert*/
 				}; 
-		int totalEvidenceTypes_count = 6; //above 6 cases.
+		int totalEvidenceTypes_count = 7; //above 7 cases.
 //		int[] otherAssignmentOptionsToConsider = new int[]{
 //				0, //Constants.OTHER_ASSIGNMENT_OPTIONS__CONCATENATE_PROJECT_TITLE_AND_DESCRIPTION_TO_THE_BUG 		--> concatenate "project title and description" to the bug and assignedBugEvidence
 //				0, //Constants.OTHER_ASSIGNMENT_OPTIONS__CONCATENATE_MAIN_LANGUAGES_TO_THE_BUG 						--> concatenate "project main language" to the bug and assignedBugEvidence
@@ -538,7 +556,9 @@ public class Algorithm {//test 9
 		boolean isMainRun = true; //: means that we are running the code for all projects.
 //		boolean isMainRun = false; //: means that we are running the code for only three test projects ("adobe/brackets", "fog/fog" and "lift/framework").
 		
-		GeneralExperimentType generalExperimentType = GeneralExperimentType.CALCULATE_OUR_METRIC__TTBA;
+		// GeneralExperimentType generalExperimentType = GeneralExperimentType.CALCULATE_OUR_METRIC__TTBA;
+		GeneralExperimentType generalExperimentType = GeneralExperimentType.CALCULATE_VTBA_CODEBERT;
+
 //		GeneralExperimentType generalExperimentType = GeneralExperimentType.JUST_CALCULATE_ORIGINAL_TF_IDF;
 //		GeneralExperimentType generalExperimentType = GeneralExperimentType.JUST_CALCULATE_TIME_TF_IDF;
 //		GeneralExperimentType generalExperimentType = GeneralExperimentType.JUST_CALCULATE_TIME_TF_IDF2;
@@ -600,11 +620,15 @@ public class Algorithm {//test 9
 //										&& option4_IDF!=BTOption4_IDF.FREQ__TOTAL_NUMBER_OF_TERMS)
 //										continue; 
 									for (BTOption8_recency option8_recency: BTOption8_recency.values()){
+
+										if (option8_recency != BTOption8_recency.RECENCY1)
+        									continue;
+
 										//"bTD": bugTitleDescription		"pTD: projectTitleDescription		"mL": mainLanguages
 //										if (option8_recency != BTOption8_recency.NO_RECENCY)
 //											continue;
-										if (option8_recency != BTOption8_recency.RECENCY2)
-											continue;
+										// if (option8_recency != BTOption8_recency.RECENCY2)
+										// 	continue;
 										String assignedBugAndUsedBugAsEvidence_Text = "bTD";
 										if (evidenceTypes[0] == 1){
 											if (option1_whatToAddToAllBugs == BTOption1_whatToAddToAllBugs.ADD_PTD || option1_whatToAddToAllBugs == BTOption1_whatToAddToAllBugs.ADD_PTD_ML)
@@ -660,6 +684,12 @@ public class Algorithm {//test 9
 //											nodeWeightsInputFile = "nodeWeights2-bugs.tsv";
 											nodeWeightsInputFile = "nodeWeights2-bugsAndCommitsAndPRsEtc.tsv";
 											break;
+                                        case CALCULATE_VTBA_CODEBERT:
+                                            methodology = "VTBA_CodeBERT";
+                                            inputDir = Constants.DATASET_DIRECTORY_FOR_THE_ALGORITHM__GH__EXPERIMENT_MAIN;
+                                            nodeWeightsInputPath = Constants.DATASET_DIRECTORY_FOR_THE_ALGORITHM__SO__EXPERIMENT;
+                                            nodeWeightsInputFile = "nodeWeights.tsv";
+                                            break;
 										case CALCULATE_VTBA_SOURCECODE:
 											methodology = "VTBA_SOURCECODE";
 											inputDir = Constants.DATASET_DIRECTORY_FOR_THE_ALGORITHM__GH__EXPERIMENT_TFIDF;

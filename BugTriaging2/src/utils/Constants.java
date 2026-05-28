@@ -140,6 +140,8 @@ public class Constants {
 	public static final int EVIDENCE_TYPE_COMMIT_COMMENT = 14;
 	public static final int EVIDENCE_TYPE_PR_COMMENT = 15;
 
+	public static final int EVIDENCE_TYPE_CODEBERT = 16;
+
 	public static final int[] EVIDENCE_TYPE = {
 			ASSIGNMENT_TYPES_TO_TRIAGE.T1_AUTHOR.ordinal(),
 			ASSIGNMENT_TYPES_TO_TRIAGE.T2_COAUTHOR.ordinal(),
@@ -151,11 +153,14 @@ public class Constants {
 			EVIDENCE_TYPE_BUG_COMMENT,
 			EVIDENCE_TYPE_COMMIT_COMMENT,
 			EVIDENCE_TYPE_PR_COMMENT,
+
+			EVIDENCE_TYPE_CODEBERT
 			};
 	public static Double[] TYPE_SIMILARITY = {
 			1.0, 1.0, 1.0, 1.0, 1.0,
 			0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
 			0.3, 0.3, 0.6, 0.3, 0.1,
+			1.0
 	};
 
 	public static final String[] ASSIGNED_BUGS_TYPES__SHORT_DESCRIPTIONS = {
@@ -213,7 +218,9 @@ public class Constants {
 		CALCULATE_TBA,
 		CALCULATE_VTBA_GH,
 		CALCULATE_VTBA_GH__CALCULATE_WEIGHS_ONLINE,
-		CALCULATE_VTBA_SOURCECODE
+		CALCULATE_VTBA_SOURCECODE,
+
+		CALCULATE_VTBA_CODEBERT
 	}
 
 	public static final String[] listOf13Projects = new String[]{

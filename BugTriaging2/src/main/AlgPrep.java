@@ -255,12 +255,82 @@ public class AlgPrep {
 			if (error_A > 0)
 				System.out.println(error_A + " ERRORS-A in calculateScoreOfDeveloperForBugAssignment(): the word entry is missing for calculating idf!");
 			score = subScore;
-			if (option5_prioritizePAs == BTOption5_prioritizePAs.PRIORITY_FOR_PREVIOUS_ASSIGNEES)//: Prioritize previous assignees
+			if (option5_prioritizePAs == BTOption5_prioritizePAs.PRIORITY_FOR_PREVIOUS_ASSIGNEES) {//: Prioritize previous assignees
 				if (previousAssigneesInThisProject.contains(login))
 					score = score + 10000;
-		}
-		else{
-			Double termWeight;
+			}
+        } else if (generalExperimentType == GeneralExperimentType.CALCULATE_VTBA_CODEBERT) {
+            double termWeight_cb;
+            if (logins_Tags_TypesAndTheirEvidence_InAProject.containsKey(login)) {
+                Date assignmentDate = a.date;
+                HashMap<String, HashMap<Integer, ArrayList<Evidence>>> tags_TypesAndTheirEvidence_cb =
+                        logins_Tags_TypesAndTheirEvidence_InAProject.get(login);
+
+                for (int i = 0; i < wAC.size; i++) {
+                    String queryTag = wAC.words[i];
+                    if (!tags_TypesAndTheirEvidence_cb.containsKey(queryTag))
+                        continue;
+
+                    HashMap<Integer, ArrayList<Evidence>> typesMap = tags_TypesAndTheirEvidence_cb.get(queryTag);
+                    if (!typesMap.containsKey(Constants.EVIDENCE_TYPE_CODEBERT))
+                        continue;
+
+                    ArrayList<Evidence> cbEvidenceList = typesMap.get(Constants.EVIDENCE_TYPE_CODEBERT);
+
+                    if (option2_w == BTOption2_w.USE_TERM_WEIGHTING)
+                        termWeight_cb = (generalExperimentType == GeneralExperimentType.CALCULATE_VTBA_GH__CALCULATE_WEIGHS_ONLINE)
+                                ? updatingGraph.getNodeWeight(queryTag)
+                                : graph.getNodeWeight(queryTag);
+                    else
+                        termWeight_cb = 1.0;
+
+                    subScore = 0.0;
+                    for (Evidence e : cbEvidenceList) {
+                        if (e.date.compareTo(assignmentDate) >= 0)
+                            break;
+
+                        double recency = 1.0;
+                        switch (option8_recency) {
+                            case RECENCY1:
+                                recency = (double)(e.date.getTime() - beginningDateOfProject.getTime())
+                                        / (double)(assignmentDate.getTime() - beginningDateOfProject.getTime());
+                                break;
+                            case RECENCY2:
+                                int seqDiff = seqNum - e.nonBA_virtualSeqNum[assignmentTypeToTriage];
+                                recency = (seqDiff > 0) ? 1.0 / seqDiff : 1.0;
+                                break;
+                            case NO_RECENCY:
+                            default:
+                                recency = 1.0;
+                                break;
+                        }
+
+                        subScore += e.tf * recency;
+                    }
+
+                    switch (option4_IDF) {
+                        case FREQ:
+                            score += subScore * termWeight_cb * wAC.counts[i];
+                            break;
+                        case FREQ__TOTAL_NUMBER_OF_TERMS:
+                            score += subScore * termWeight_cb * wAC.counts[i] / wAC.totalNumberOfWords;
+                            break;
+                        case LOG_BASED:
+                            score += subScore * termWeight_cb * (1 + Math.log10(wAC.counts[i]));
+                            break;
+                        case ONE:
+                        default:
+                            score += subScore * termWeight_cb;
+                            break;
+                    }
+                }
+            }
+
+            if (option5_prioritizePAs == BTOption5_prioritizePAs.PRIORITY_FOR_PREVIOUS_ASSIGNEES)
+                if (previousAssigneesInThisProject.contains(login))
+                    score += 10000;
+        }
+        else{			Double termWeight;
 			int errors1 = 0;
 			int errors2 = 0;
 			int errors3_possibly = 0;
@@ -838,7 +908,105 @@ public class AlgPrep {
 	}
 	//------------------------------------------------------------------------------------------------------------------------
 	//------------------------------------------------------------------------------------------------------------------------
-	public static void indexAssignmentEvidence(int evidenceType, TreeMap<String, ArrayList<String[]>> projectsAndTheirAssignments, 
+	public static void readAndIndexCodeBERTEvidence(
+			String codebertTSVPath,
+			TreeMap<String, String[]> projects,
+			ArrayList<TreeMap<String, ArrayList<String[]>>> projectsAndTheirAssignments__AL_forDifferentAssignmetTypes,
+			int[] assignmentTypesToTriage,
+			HashMap<String, HashMap<String, HashMap<String, HashMap<Integer, ArrayList<Evidence>>>>> projectId_Login_Tags_TypesAndTheirEvidence,
+			double confidenceThreshold,
+			FileManipulationResult fMR,
+			int indentationLevel) {
+
+		MyUtils.println("Reading CodeBERT evidence from: " + codebertTSVPath, indentationLevel);
+
+		int linesRead = 0;
+		int linesIndexed = 0;
+
+		try (BufferedReader br = new BufferedReader(new FileReader(codebertTSVPath))) {
+			String line;
+			while ((line = br.readLine()) != null) {
+				linesRead++;
+				String[] cols = line.split("\t");
+				if (cols.length < 5) {
+					MyUtils.println("WARNING: skipping malformed line " + linesRead + ": " + line, indentationLevel + 1);
+					fMR.errors++;
+					continue;
+				}
+
+				String projectId = cols[0].trim();
+				String login = cols[1].trim();
+				String dateStr = cols[2].trim();
+				String soTag = cols[3].trim();
+				double confidence;
+
+				try {
+					confidence = Double.parseDouble(cols[4].trim());
+				} catch (NumberFormatException e) {
+					MyUtils.println("WARNING: bad confidence score on line " + linesRead, indentationLevel + 1);
+					fMR.errors++;
+					continue;
+				}
+
+				if (confidence < confidenceThreshold)
+					continue;
+
+				if (!projects.containsKey(projectId))
+					continue;
+
+				int[] virtualSeqNum = new int[Constants.NUMBER_OF_ASSIGNEE_TYPES];
+				for (int j = ASSIGNMENT_TYPES_TO_TRIAGE.T1_AUTHOR.ordinal(); j <= ASSIGNMENT_TYPES_TO_TRIAGE.T5_ALL_TYPES.ordinal(); j++) {
+					if (assignmentTypesToTriage[j] == Algorithm.YES) {
+						TreeMap<String, ArrayList<String[]>> projectsAndTheirAssignments = projectsAndTheirAssignments__AL_forDifferentAssignmetTypes.get(j);
+						ArrayList<String[]> assignments = projectsAndTheirAssignments == null ? null : projectsAndTheirAssignments.get(projectId);
+						if (assignments != null)
+							virtualSeqNum[j] = MyUtils.specialBinarySearch2(assignments, 1/*the date field is index 1*/, dateStr) + 1;
+						else
+							virtualSeqNum[j] = Constants.SEQ_NUM____NO_NEED_TO_TRIAGE_THIS_TYPE___OR___THIS_IS_NOT__NON_B_A_EVIDENCE;
+					} else
+						virtualSeqNum[j] = Constants.SEQ_NUM____NO_NEED_TO_TRIAGE_THIS_TYPE___OR___THIS_IS_NOT__NON_B_A_EVIDENCE;
+				}
+
+				Date date;
+				try {
+					date = Constants.dateFormat.parse(dateStr);
+				} catch (ParseException e) {
+					MyUtils.println("WARNING: bad date on line " + linesRead + ": " + dateStr, indentationLevel + 1);
+					fMR.errors++;
+					continue;
+				}
+
+				HashMap<String, HashMap<String, HashMap<Integer, ArrayList<Evidence>>>> login_Tags_TypesAndTheirEvidence =
+					projectId_Login_Tags_TypesAndTheirEvidence.computeIfAbsent(projectId, k -> new HashMap<>());
+
+				HashMap<String, HashMap<Integer, ArrayList<Evidence>>> tags_TypesAndTheirEvidence =
+					login_Tags_TypesAndTheirEvidence.computeIfAbsent(login, k -> new HashMap<>());
+
+				HashMap<Integer, ArrayList<Evidence>> typesAndTheirEvidence =
+					tags_TypesAndTheirEvidence.computeIfAbsent(soTag, k -> new HashMap<>());
+
+				ArrayList<Evidence> evidenceList =
+					typesAndTheirEvidence.computeIfAbsent(Constants.EVIDENCE_TYPE_CODEBERT, k -> new ArrayList<>());
+
+				Evidence e = new Evidence(
+					date,
+					Constants.SEQ_NUM____THIS_IS_NOT__B_A_EVIDENCE,
+					virtualSeqNum,
+					confidence);
+
+				evidenceList.add(e);
+				linesIndexed++;
+			}
+		} catch (IOException e) {
+			MyUtils.println("ERROR reading CodeBERT TSV: " + e.getMessage(), indentationLevel);
+			fMR.errors++;
+		}
+
+		MyUtils.println("CodeBERT evidence: " + linesRead + " rows read, "
+				+ linesIndexed + " indexed (threshold=" + confidenceThreshold + ").", indentationLevel);
+	}
+    //------------------------------------------------------------------------------------------------------------------------
+    public static void indexAssignmentEvidence(int evidenceType, TreeMap<String, ArrayList<String[]>> projectsAndTheirAssignments, 
 			TreeMap<String, String[]> projects, TreeMap<String, String[]> projectIdBugNumberAndTheirBugInfo, 
 			HashMap<String, HashMap<String, HashMap<String, HashMap<Integer, ArrayList<Evidence>>>>> projectId_Login_Tags_TypesAndTheirEvidence, 
 			//HashMap<projId, HashMap<login, HashMap<tag, ArrayList<Evidence>>>>
