@@ -1345,7 +1345,7 @@ public class AlgPrep {
 				List<String> uniqueTokens = new ArrayList<>(tokenFreqs.keySet());
 				if (uniqueTokens.isEmpty()) continue;
 
-				Map<String, Double> simMap = PythonBridge.getInstance().getSimilarities(uniqueTokens, soTags);
+				Map<String, Double> simMap = WordVecSimilarity.getInstance().getSimilarities(uniqueTokens, soTags);
 
 				// Compute vocabCount: distinct unique tokens that appear in any simMap key
 				Set<String> vocabTokens = new HashSet<>();
