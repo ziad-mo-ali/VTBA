@@ -272,7 +272,13 @@ def _read_tsv_dataframe(
     test_or_real: int,
 ) -> pd.DataFrame:
     path = Path(input_path) / input_file_name
-    df = pd.read_csv(path, sep="\t", dtype=str, keep_default_na=False, na_filter=False)
+    
+    # Try UTF-8 first, fall back to latin-1 if that fails
+    try:
+        df = pd.read_csv(path, sep="\t", dtype=str, keep_default_na=False, na_filter=False, encoding='utf-8')
+    except UnicodeDecodeError:
+        df = pd.read_csv(path, sep="\t", dtype=str, keep_default_na=False, na_filter=False, encoding='latin-1')
+    
     if test_or_real > -1:
         df = df.iloc[: int(test_or_real)]
     return df
