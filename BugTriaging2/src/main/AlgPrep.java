@@ -280,7 +280,7 @@ public class AlgPrep {
 				if (previousAssigneesInThisProject.contains(login))
 					score = score + 10000;
 		}
-		else{
+		else if (generalExperimentType != GeneralExperimentType.COMMIT_WORD2VEC){
 			Double termWeight;
 			int errors1 = 0;
 			int errors2 = 0;
