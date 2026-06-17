@@ -637,6 +637,8 @@ def bug_assignment(
                 total_fmr = io_utils.add_file_manipulation_results(total_fmr, local_fmr)
                 if total_fmr.errors > 0:
                     print(f"{indent(indentation_level+3)}There are errors! Breaking ...")
+                    print(f"{indent(indentation_level+3)}ERROR DETAILS: {total_fmr.errors} error(s) during processing")
+                    print(f"{indent(indentation_level+3)}Processed: {total_fmr.processed}, Done successfully: {total_fmr.done_successfully}")
                     break
 
             d6 = datetime.now()
@@ -818,6 +820,8 @@ def bug_assignment(
                                 break
                             if total_fmr.errors > 0:
                                 print(f"{indent(indentation_level+3)}There are errors! Breaking ...")
+                                print(f"{indent(indentation_level+3)}ERROR DETAILS: {total_fmr.errors} error(s) during processing")
+                                print(f"{indent(indentation_level+3)}Processed: {total_fmr.processed}, Done successfully: {total_fmr.done_successfully}")
                                 break
                             previous_assignees_in_this_project.add(a.login)
 

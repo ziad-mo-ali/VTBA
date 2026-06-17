@@ -785,7 +785,24 @@ def read_non_unique_key_and_its_value_from_tsv(
 ) -> Dict[str, List[List[str]]]:
     if wrap_output_in_lines:
         println("-----------------------------------", indentation_level)
-    df = _read_tsv_dataframe(input_path, input_file_name, test_or_real)
+    
+    try:
+        df = _read_tsv_dataframe(input_path, input_file_name, test_or_real)
+    except FileNotFoundError as e:
+        fmr.errors = 1
+        println(
+            f"Error) File not found: {input_path}/{input_file_name} - {e}",
+            indentation_level + 1,
+        )
+        return {}
+    except Exception as e:
+        fmr.errors = 1
+        println(
+            f"Error) Failed to read {input_file_name}: {type(e).__name__}: {e}",
+            indentation_level + 1,
+        )
+        return {}
+    
     result: Dict[str, List[List[str]]] = {}
     if wrap_output_in_lines:
         println(f"{indent(indentation_level)}{write_message_step}- Parsing {input_file_name}:", 0)
@@ -793,6 +810,10 @@ def read_non_unique_key_and_its_value_from_tsv(
 
     if len(df.columns) < total_fields_count:
         fmr.errors = 1
+        println(
+            f"Error) Expected {total_fields_count} fields but got {len(df.columns)} in {input_file_name}",
+            indentation_level + 1,
+        )
         return result
 
     titles = df.columns.tolist()
