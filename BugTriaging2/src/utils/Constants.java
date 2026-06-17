@@ -178,6 +178,9 @@ public class Constants {
 			"10-COMMUNITY_"+ASSIGNED_BUGS_TYPES__SHORT_DESCRIPTIONS[4],
 			};
 
+	public static final String COMMITS_DIFFS_TSV = "2-commits-diffs.tsv";
+	public static final String SIM_BRIDGE_SCRIPT = "/content/VTBA/sim_bridge.py";
+
 	public static double[] highScores = new double[]{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 
 	public enum BTOption1_whatToAddToAllBugs{
@@ -210,6 +213,7 @@ public class Constants {
 		JUST_CALCULATE_ORIGINAL_TF_IDF,
 		JUST_CALCULATE_TIME_TF_IDF,
 		JUST_CALCULATE_TIME_TF_IDF2,
+		COMMIT_WORD2VEC,
 		CALCULATE_TBA,
 		CALCULATE_VTBA_GH,
 		CALCULATE_VTBA_GH__CALCULATE_WEIGHS_ONLINE,

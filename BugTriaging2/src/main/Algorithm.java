@@ -199,6 +199,8 @@ public class Algorithm {//test 9
 				generalExperimentType, 
 				wrapOutputInLines, showProgressInterval*100, indentationLevel+1, MyUtils.concatTwoWriteMessageSteps(writeMessageStep, "6"));
 		totalFMR = MyUtils.addFileManipulationResults(totalFMR, localFMR);
+		
+		totalFMR = MyUtils.addFileManipulationResults(totalFMR, localFMR);
 
 		String detailedAssignmentResultsSubfolderName = AlgPrep.createFolderForResults(outputPath+"\\"+Constants.ASSIGNMENT_RESULTS_OVERAL_FOLDER_NAME, experimentTitle, isMainRun, localFMR, indentationLevel);
 		totalFMR = MyUtils.addFileManipulationResults(totalFMR, localFMR);
@@ -287,7 +289,21 @@ public class Algorithm {//test 9
 								if (wrapOutputInLines)
 									MyUtils.println("-----------------------------------", indentationLevel+4);
 								MyUtils.println(subStep+"-"+projectCounter+"- "+project.owner_repo+" (projectId: " + projectId + ")", indentationLevel+4);
-
+					// Fresh commit index per project (COMMIT_WORD2VEC only)
+					TreeMap<String, ArrayList<AlgPrep.CommitRecord>> developerCommitIndex = new TreeMap<>();
+					if (generalExperimentType == GeneralExperimentType.COMMIT_WORD2VEC) {
+						List<String> soTags = new ArrayList<>(graph.getNodeNames());
+						AlgPrep.readAndIndexCommitDiffEvidence(
+							inputPath,
+							projectId,
+							projects,
+							localFMR,
+							developerCommitIndex,
+							soTags,
+							indentationLevel + 1
+						);
+						totalFMR = MyUtils.addFileManipulationResults(totalFMR, localFMR);
+					}
 								Graph updatingGraph = new Graph();
 								HashMap<String, Long> occurrences = new HashMap<String, Long>(); 
 								LongClass maxNumberOfOccurrencesForAKeyword = new LongClass(0);
@@ -357,6 +373,7 @@ public class Algorithm {//test 9
 														project.overalStartingDate, 
 														generalExperimentType, community.size(), wordsAnd_theDevelopersUsedThemUpToNow_lastUsageDate, wordsAnd_theDevelopersUsedThemUpToNow_allUsageDates, 
 														option2_w, option4_IDF, option5_prioritizePAs, option8_recency,
+														developerCommitIndex,
 														indentationLevel+5));
 									}
 									//Adding this assignee to the set of assignees of this bug (will be used in measuring the accuracies):

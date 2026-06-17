@@ -10,12 +10,17 @@ import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -51,6 +56,21 @@ public class AlgPrep {
 	public static int maxFreqOfAWordInAnEvidence = 0;
 	public static final String ALL_PROJECTS = "ALL_PROJECTS";
 	public static Random random = new Random();			
+
+	public static class CommitRecord {
+		public String sha;
+		public String user;
+		public Date date;
+		public Map<String, Double> tagScores;
+
+		public CommitRecord(String sha, String user, Date date, Map<String, Double> tagScores) {
+			this.sha = sha;
+			this.user = user;
+			this.date = date;
+			this.tagScores = tagScores;
+		}
+	}
+
 	//------------------------------------------------------------------------------------------------------------------------
 	//------------------------------------------------------------------------------------------------------------------------
 	//The following method returns project type (one of the 13 main FASE projects, 3 other projects, project families or other (unknown)).
@@ -170,7 +190,8 @@ public class AlgPrep {
 			GeneralExperimentType generalExperimentType, int numberOfCommunityMembers, HashMap<String, HashMap<String, Date>> wordsAnd_theDevelopersUsedThemUpToNow_lastUsageDate, //"java"--> <"bob", 1/1/1>
 			HashMap<String, HashMap<String, HashSet<Date>>> wordsAnd_theDevelopersUsedThemUpToNow_allUsageDates /*"java"--> <"bob", <2019/1/1, 2018/2/2, 2019/3/3, ...>>*/, 
 			BTOption2_w option2_w, BTOption4_IDF option4_IDF, BTOption5_prioritizePAs option5_prioritizePAs, BTOption8_recency option8_recency, 
-			int indentationLevel){
+			int indentationLevel, 
+			TreeMap<String, ArrayList<AlgPrep.CommitRecord>> developerCommitIndex){
 		//This method calculates the score of developer "login" for assignment "a". 
 		//		It considers the evidence of expertise from beginning of project until the time of "a". 
 		//			Later, it also considers the evidence in other projects (the project family experiment) using projectsAndTheirAssignments.
@@ -411,6 +432,45 @@ public class AlgPrep {
 					score = score + 10000;
 			}
 		} //else of if (justCalculateOriginalTFIDF).
+		else if (generalExperimentType == GeneralExperimentType.COMMIT_WORD2VEC) {
+			if (developerCommitIndex != null && developerCommitIndex.containsKey(login)) {
+				ArrayList<AlgPrep.CommitRecord> commits = developerCommitIndex.get(login);
+				
+				// Filter commits before bug date
+				List<AlgPrep.CommitRecord> commitsBeforeBug = new ArrayList<>();
+				for (AlgPrep.CommitRecord cr : commits) {
+					if (cr.date.compareTo(a.date) < 0)
+						commitsBeforeBug.add(cr);
+				}
+				
+				if (!commitsBeforeBug.isEmpty()) {
+					// avg_commits_per_period(d)
+					Date earliestDate = commitsBeforeBug.get(0).date; // list is sorted ascending
+					int periodDays = MyUtils.getDifferenceInDays(a.date, earliestDate);
+					double avgCommitsPerPeriod = commitsBeforeBug.size() / (double) Math.max(1, periodDays);
+					if (avgCommitsPerPeriod == 0.0) avgCommitsPerPeriod = 1.0;
+					
+					// Score each tag in bug query
+					for (int i = 0; i < wAC.size; i++) {
+						String tag = wAC.words[i];
+						double termWeight = graph.getNodeWeight(tag);
+						double tagAggScore = 0.0;
+						
+						for (int j = 0; j < commitsBeforeBug.size(); j++) {
+							AlgPrep.CommitRecord cr = commitsBeforeBug.get(j);
+							int commitsAfter = commitsBeforeBug.size() - 1 - j;
+							double recency = 1.0 / (1.0 + commitsAfter / avgCommitsPerPeriod);
+							tagAggScore += cr.tagScores.getOrDefault(tag, 0.0) * recency;
+						}
+						score += wAC.counts[i] * termWeight * tagAggScore;
+					}
+					
+					if (option5_prioritizePAs == BTOption5_prioritizePAs.PRIORITY_FOR_PREVIOUS_ASSIGNEES)
+						if (previousAssigneesInThisProject.contains(login))
+							score += 10000;
+				}
+			}
+		}
 		return score;
 	}
 	//------------------------------------------------------------------------------------------------------------------------
@@ -1214,6 +1274,100 @@ public class AlgPrep {
 //				return (commitMessage + " " + getMainLanguages(project.mainLanguagePercentages)).replaceAll("\\s{2,}", " ").trim(); //removing extra spaces (that may be added right now by concatenating).
 //			else
 //				return commitMessage;
+	}
+	//------------------------------------------------------------------------------------------------------------------------
+	//------------------------------------------------------------------------------------------------------------------------
+	public static void readAndIndexCommitDiffEvidence(
+			String inputPath,
+			String projectId,
+			TreeMap<String, String[]> projects,
+			FileManipulationResult fMR,
+			TreeMap<String, ArrayList<CommitRecord>> developerCommitIndex,
+			List<String> soTags,
+			int indentationLevel) {
+		// This method reads commit diff info from Constants.COMMITS_DIFFS_TSV and indexes them by developer login.
+		// The developerCommitIndex structure is: developerLogin -> [CommitRecord, CommitRecord, ...]
+		// Processes only records matching the provided projectId.
+
+		String commitsDiffsInputFileName = Constants.COMMITS_DIFFS_TSV;
+		if (commitsDiffsInputFileName == null || commitsDiffsInputFileName.isEmpty())
+			return;
+
+		try (BufferedReader br = new BufferedReader(new FileReader(inputPath + "/" + commitsDiffsInputFileName))) {
+			int lineCount = 0;
+			String s;
+			br.readLine(); // header
+			while ((s = br.readLine()) != null) {
+				lineCount++;
+				if (lineCount % 10000 == 0)
+					MyUtils.println("Processed " + lineCount + " commit diff lines...", indentationLevel);
+
+				String[] fields = s.split("\t");
+				if (fields.length != 5) {
+					fMR.errors++;
+					continue;
+				}
+
+				// fields: 0:sha, 1:projectId, 2:developer, 3:date, 4:commitDiff
+				if (!fields[1].equals(projectId))
+					continue;
+
+				String commitSHA = fields[0];
+				String developer = fields[2];
+				String dateStr = fields[3];
+				String commitDiff = fields[4];
+
+				if (developer.equals(" "))
+					continue;
+
+				Date parsedDate;
+				try {
+					parsedDate = Constants.dateFormat.parse(dateStr);
+				} catch (ParseException pe) {
+					fMR.errors++;
+					continue;
+				}
+
+				List<String> tokens = Arrays.asList(commitDiff.trim().split("\\s+"));
+				if (tokens.isEmpty() || (tokens.size() == 1 && tokens.get(0).isEmpty()))
+					continue;
+
+				Map<String, Double> simMap = PythonBridge.getInstance().getSimilarities(tokens, soTags);
+
+				Set<String> distinctTokens = new HashSet<>();
+				for (String key : simMap.keySet()) {
+					int separatorIdx = key.indexOf("__");
+					if (separatorIdx > 0)
+						distinctTokens.add(key.substring(0, separatorIdx));
+				}
+				int vocabCount = distinctTokens.size();
+
+				Map<String, Double> tagScores = new HashMap<>();
+				for (String tag : soTags) {
+					double simSum = 0.0;
+					for (Map.Entry<String, Double> entry : simMap.entrySet()) {
+						if (entry.getKey().endsWith("__" + tag)) {
+							simSum += entry.getValue();
+						}
+					}
+					double tagScore = (vocabCount == 0) ? 0.0 : simSum / vocabCount;
+					if (tagScore > 0.0)
+						tagScores.put(tag, tagScore);
+				}
+
+				CommitRecord cr = new CommitRecord(commitSHA, developer, parsedDate, tagScores);
+				developerCommitIndex.computeIfAbsent(developer, k -> new ArrayList<>()).add(cr);
+			}
+
+			// Sort each developer's commits by date ascending
+			developerCommitIndex.forEach((dev, list) -> list.sort(Comparator.comparing(cr -> cr.date)));
+
+			MyUtils.println("Indexed commit diff records for projectId: " + projectId, indentationLevel);
+		} catch (IOException e) {
+			fMR.errors++;
+			System.out.println("ERROR reading commit diff evidence!");
+			e.printStackTrace();
+		}
 	}
 	//------------------------------------------------------------------------------------------------------------------------
 	//------------------------------------------------------------------------------------------------------------------------

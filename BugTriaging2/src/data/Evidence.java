@@ -13,6 +13,7 @@ public class Evidence {
 	public int freq; //The frequency of the term (tag) in the respective field.
 	public int totalNumberOfWordsInThisEvidence;
 	public double tf;
+	public double word2vecTfScore = 0.0;
 	public Evidence(Date date, int seqNum, int[] virtualSeqNum, int freq, int totalNumberOfWordsInThisEvidence, BTOption3_TF option3_TF){
 		this.date = date;
 		this.bASeqNum = seqNum;
@@ -24,12 +25,16 @@ public class Evidence {
 		switch (option3_TF){
 		case ONE: 
 			tf = 1;
+			break; // BUGFIX: added missing break statements
 		case FREQ: 
 			tf = freq;
+			break; // BUGFIX: added missing break statements
 		case FREQ__TOTAL_NUMBER_OF_TERMS: 
 			tf = (double)freq/totalNumberOfWordsInThisEvidence; 
+			break; // BUGFIX: added missing break statements
 		case LOG_BASED: 
 			tf = 1+(double)Math.log10(freq); 
+			break; // BUGFIX: added missing break statements
 		}
 	}
 }

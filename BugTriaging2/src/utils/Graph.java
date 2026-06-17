@@ -40,6 +40,11 @@ public class Graph {
 			nodeWeights = new HashMap<String, Double>();
 		nodeWeights.put(node, weight);
 	}
+	public java.util.Set<String> getNodeNames(){
+		if (nodeWeights == null)
+			return new java.util.HashSet<String>();
+		return nodeWeights.keySet();
+	}
 	public void loadGraph(String inputPath, String nodesInputFileName, String edgesInputFileName, FileManipulationResult fMR,
 			boolean wrapOutputInLines, int showProgressInterval, int indentationLevel, long testOrReal, String writeMessageStep) {
 		nodeWeights = new HashMap<String, Double>();
