@@ -345,8 +345,11 @@ def read_unique_key_and_its_value_from_tsv(
     error2 = 0
     unmatched_records = 0
     matched_rec = 0
+    
+    # Convert show_progress_interval to int to avoid type issues
+    show_progress_interval = int(show_progress_interval) if show_progress_interval else 0
 
-    for i, row in df.iterrows():
+    for row_idx, row in enumerate(df.values):
         fields = row.tolist()
         if len(fields) != total_fields_count:
             error1 += 1
@@ -373,8 +376,8 @@ def read_unique_key_and_its_value_from_tsv(
             error2 += 1
             continue
         result[key_field] = _select_fields(fields, field_numbers_to_be_read_separated_by_dollar)
-        if show_progress_interval and ((i + 1) % show_progress_interval == 0):
-            println(f"{indent(indentation_level+1)}{i+1}", 0)
+        if show_progress_interval and ((row_idx + 1) % show_progress_interval == 0):
+            println(f"{indent(indentation_level+1)}{row_idx+1}", 0)
 
     if error1 > 0:
         println(
@@ -443,8 +446,11 @@ def read_unique_combined_key_and_its_value_from_tsv(
     matched_rec = 0
     key_field_numbers = [int(x) for x in key_field_numbers_separated_by_dollar.split("$") if x != ""]
     key1_index, key2_index = key_field_numbers
+    
+    # Convert show_progress_interval to int to avoid type issues
+    show_progress_interval = int(show_progress_interval) if show_progress_interval else 0
 
-    for i, row in df.iterrows():
+    for row_idx, row in enumerate(df.values):
         fields = row.tolist()
         if len(fields) != total_fields_count:
             error1 += 1
@@ -471,8 +477,8 @@ def read_unique_combined_key_and_its_value_from_tsv(
             error2 += 1
             continue
         result[key_field] = _select_fields(fields, field_numbers_to_be_read_separated_by_dollar)
-        if show_progress_interval and ((i + 1) % show_progress_interval == 0):
-            println(f"{indent(indentation_level+1)}{i+1}", 0)
+        if show_progress_interval and ((row_idx + 1) % show_progress_interval == 0):
+            println(f"{indent(indentation_level+1)}{row_idx+1}", 0)
 
     if error1 > 0:
         println(
@@ -537,8 +543,11 @@ def read_non_unique_field_from_tsv_only_repeat_each_entry_once(
     error1 = 0
     unmatched_records = 0
     matched_rec = 0
+    
+    # Convert show_progress_interval to int to avoid type issues
+    show_progress_interval = int(show_progress_interval) if show_progress_interval else 0
 
-    for i, row in df.iterrows():
+    for row_idx, row in enumerate(df.values):
         fields = row.tolist()
         if len(fields) != total_fields_count:
             error1 += 1
@@ -561,8 +570,8 @@ def read_non_unique_field_from_tsv_only_repeat_each_entry_once(
         if key_field not in result:
             result.add(key_field)
         matched_rec += 1
-        if show_progress_interval and ((i + 1) % show_progress_interval == 0):
-            println(f"{indent(indentation_level)}{i+1}", 0)
+        if show_progress_interval and ((row_idx + 1) % show_progress_interval == 0):
+            println(f"{indent(indentation_level)}{row_idx+1}", 0)
 
     if error1 > 0:
         println(
@@ -621,8 +630,11 @@ def read_unique_field_from_tsv(
     error2 = 0
     unmatched_records = 0
     matched_rec = 0
+    
+    # Convert show_progress_interval to int to avoid type issues
+    show_progress_interval = int(show_progress_interval) if show_progress_interval else 0
 
-    for i, row in df.iterrows():
+    for row_idx, row in enumerate(df.values):
         fields = row.tolist()
         if len(fields) != total_fields_count:
             error1 += 1
@@ -647,8 +659,8 @@ def read_unique_field_from_tsv(
         else:
             result.add(key_field)
         matched_rec += 1
-        if show_progress_interval and ((i + 1) % show_progress_interval == 0):
-            println(f"{indent(indentation_level)}{i+1}", 0)
+        if show_progress_interval and ((row_idx + 1) % show_progress_interval == 0):
+            println(f"{indent(indentation_level)}{row_idx+1}", 0)
 
     if error1 > 0:
         println(
@@ -792,8 +804,11 @@ def read_non_unique_key_and_its_value_from_tsv(
     unmatched_records = 0
     equal_objects_found = 0
     matched_rec = 0
+    
+    # Convert show_progress_interval to int to avoid type issues
+    show_progress_interval = int(show_progress_interval) if show_progress_interval else 0
 
-    for i, row in df.iterrows():
+    for row_idx, row in enumerate(df.values):
         fields = row.tolist()
         if len(fields) != total_fields_count:
             error += 1
@@ -823,8 +838,8 @@ def read_non_unique_key_and_its_value_from_tsv(
             else:
                 equal_objects_found += 1
         matched_rec += 1
-        if show_progress_interval and ((i + 1) % show_progress_interval == 0):
-            println(f"{indent(indentation_level+1)}{i+1}", 0)
+        if show_progress_interval and ((row_idx + 1) % show_progress_interval == 0):
+            println(f"{indent(indentation_level+1)}{row_idx+1}", 0)
 
     if error > 0:
         println(f"Error) Number of records with != {total_fields_count} fields: {error}", indentation_level + 1)
@@ -886,8 +901,11 @@ def read_non_unique_key_and_its_value_as_treeset_from_tsv(
     equal_objects_found = 0
     matched_rec = 0
     number_of_key_values_read = 0
+    
+    # Convert show_progress_interval to int to avoid type issues
+    show_progress_interval = int(show_progress_interval) if show_progress_interval else 0
 
-    for i, row in df.iterrows():
+    for row_idx, row in enumerate(df.values):
         fields = row.tolist()
         if len(fields) != total_fields_count:
             error += 1
@@ -921,8 +939,8 @@ def read_non_unique_key_and_its_value_as_treeset_from_tsv(
                 result[key_field].add(value_field)
                 number_of_key_values_read += 1
         matched_rec += 1
-        if show_progress_interval and ((i + 1) % show_progress_interval == 0):
-            println(f"{indent(indentation_level+1)}{i+1}", 0)
+        if show_progress_interval and ((row_idx + 1) % show_progress_interval == 0):
+            println(f"{indent(indentation_level+1)}{row_idx+1}", 0)
 
     if error > 0:
         println(f"Error) Number of records with != {total_fields_count} fields: {error}", indentation_level + 1)
@@ -991,8 +1009,11 @@ def read_non_unique_combined_key_and_its_value_from_tsv(
     unmatched_records = 0
     equal_objects_found = 0
     matched_rec = 0
+    
+    # Convert show_progress_interval to int to avoid type issues
+    show_progress_interval = int(show_progress_interval) if show_progress_interval else 0
 
-    for i, row in df.iterrows():
+    for row_idx, row in enumerate(df.values):
         fields = row.tolist()
         if len(fields) != total_fields_count:
             error += 1
@@ -1022,8 +1043,8 @@ def read_non_unique_combined_key_and_its_value_from_tsv(
             else:
                 equal_objects_found += 1
         matched_rec += 1
-        if show_progress_interval and ((i + 1) % show_progress_interval == 0):
-            println(f"{indent(indentation_level+1)}{i+1}", 0)
+        if show_progress_interval and ((row_idx + 1) % show_progress_interval == 0):
+            println(f"{indent(indentation_level+1)}{row_idx+1}", 0)
 
     if error > 0:
         println(f"Error) Number of records with != {total_fields_count} fields: {error}", indentation_level + 1)

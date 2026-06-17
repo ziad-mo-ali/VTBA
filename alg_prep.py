@@ -25,7 +25,7 @@ from constants import (
     TAB,
 )
 from io_utils import FileManipulationResult
-from models import Assignment, Bug, Evidence, Project
+from models import Assignment, Bug, Evidence, EvidenceType, Project
 
 DATE_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 NUMBER_OF_ASSIGNEE_TYPES = 5
