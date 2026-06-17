@@ -16,6 +16,7 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -1328,31 +1329,47 @@ public class AlgPrep {
 					continue;
 				}
 
-				List<String> tokens = Arrays.asList(commitDiff.trim().split("\\s+"));
-				if (tokens.isEmpty() || (tokens.size() == 1 && tokens.get(0).isEmpty()))
+				String[] tokensArray = commitDiff.trim().split("\\s+");
+				if (tokensArray.length == 0 || (tokensArray.length == 1 && tokensArray[0].isEmpty()))
 					continue;
 
-				Map<String, Double> simMap = PythonBridge.getInstance().getSimilarities(tokens, soTags);
-
-				Set<String> distinctTokens = new HashSet<>();
-				for (String key : simMap.keySet()) {
-					int separatorIdx = key.indexOf("__");
-					if (separatorIdx > 0)
-						distinctTokens.add(key.substring(0, separatorIdx));
+				// Count token frequencies
+				Map<String, Integer> tokenFreqs = new LinkedHashMap<>();
+				for (String tok : tokensArray) {
+					if (!tok.isEmpty())
+						tokenFreqs.merge(tok, 1, Integer::sum);
 				}
-				int vocabCount = distinctTokens.size();
+				int totalTokenCount = tokensArray.length; // |c_j| before dedup
 
+				// Send only unique tokens to Python
+				List<String> uniqueTokens = new ArrayList<>(tokenFreqs.keySet());
+				if (uniqueTokens.isEmpty()) continue;
+
+				Map<String, Double> simMap = PythonBridge.getInstance().getSimilarities(uniqueTokens, soTags);
+
+				// Compute vocabCount: distinct unique tokens that appear in any simMap key
+				Set<String> vocabTokens = new HashSet<>();
+				for (String key : simMap.keySet()) {
+					int sep = key.indexOf("__");
+					if (sep > 0) vocabTokens.add(key.substring(0, sep));
+				}
+				int vocabCount = vocabTokens.size();
+
+				// Compute tagScores: weight each similarity by token frequency
 				Map<String, Double> tagScores = new HashMap<>();
 				for (String tag : soTags) {
 					double simSum = 0.0;
 					for (Map.Entry<String, Double> entry : simMap.entrySet()) {
-						if (entry.getKey().endsWith("__" + tag)) {
-							simSum += entry.getValue();
+						String key = entry.getKey();
+						if (key.endsWith("__" + tag)) {
+							String tok = key.substring(0, key.indexOf("__"));
+							int freq = tokenFreqs.getOrDefault(tok, 1);
+							simSum += entry.getValue() * freq;
 						}
 					}
-					double tagScore = (vocabCount == 0) ? 0.0 : simSum / vocabCount;
-					if (tagScore > 0.0)
-						tagScores.put(tag, tagScore);
+					// Normalize by total token count (not vocabCount) to preserve |c_j| semantics
+					double tagScore = (totalTokenCount == 0) ? 0.0 : simSum / totalTokenCount;
+					if (tagScore > 0.0) tagScores.put(tag, tagScore);
 				}
 
 				CommitRecord cr = new CommitRecord(commitSHA, developer, parsedDate, tagScores);
