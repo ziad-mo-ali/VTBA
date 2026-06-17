@@ -555,7 +555,7 @@ public class Algorithm {//test 9
 		boolean isMainRun = true; //: means that we are running the code for all projects.
 //		boolean isMainRun = false; //: means that we are running the code for only three test projects ("adobe/brackets", "fog/fog" and "lift/framework").
 		
-		GeneralExperimentType generalExperimentType = GeneralExperimentType.CALCULATE_OUR_METRIC__TTBA;
+		GeneralExperimentType generalExperimentType = GeneralExperimentType.COMMIT_WORD2VEC;
 //		GeneralExperimentType generalExperimentType = GeneralExperimentType.JUST_CALCULATE_ORIGINAL_TF_IDF;
 //		GeneralExperimentType generalExperimentType = GeneralExperimentType.JUST_CALCULATE_TIME_TF_IDF;
 //		GeneralExperimentType generalExperimentType = GeneralExperimentType.JUST_CALCULATE_TIME_TF_IDF2;
