@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.TreeMap;
@@ -373,8 +374,8 @@ public class Algorithm {//test 9
 														project.overalStartingDate, 
 														generalExperimentType, community.size(), wordsAnd_theDevelopersUsedThemUpToNow_lastUsageDate, wordsAnd_theDevelopersUsedThemUpToNow_allUsageDates, 
 														option2_w, option4_IDF, option5_prioritizePAs, option8_recency,
-														developerCommitIndex,
-														indentationLevel+5));
+														indentationLevel+5,
+														developerCommitIndex));
 									}
 									//Adding this assignee to the set of assignees of this bug (will be used in measuring the accuracies):
 									HashMap<String, Integer> previousAssigneesOfThisBugAndTheirRanks;
