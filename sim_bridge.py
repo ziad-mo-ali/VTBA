@@ -8,25 +8,6 @@ import os
 MODEL_DIR = "/content/VTBA/w2v_model"
 MODEL_SUBDIR = "w2v_model_5chunksaveing"
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_SUBDIR, "word2vec.model")
-HF_REPO_ID = "ziad4422/codebert-so-tagger-large"
-
-
-def download_model_if_needed():
-    """Download model from HuggingFace if not present locally."""
-    if os.path.exists(MODEL_PATH):
-        return True
-    
-    try:
-        from huggingface_hub import snapshot_download
-        print(f"Downloading model from HuggingFace...")
-        snapshot_download(
-            repo_id=HF_REPO_ID,
-            local_dir=MODEL_DIR
-        )
-        return True
-    except Exception as exc:
-        print(json.dumps({"error": f"Model download failed: {str(exc)}"}))
-        return False
 
 
 def load_model():
@@ -42,9 +23,10 @@ def load_model():
 
 def main():
     # Ensure model is available
-    if not download_model_if_needed():
+    if not os.path.exists(MODEL_PATH):
+        print(f"ERROR: Model not found at {MODEL_PATH}", file=sys.stderr)
         sys.exit(1)
-    
+
     # Load model
     model = load_model()
     if model is None:
