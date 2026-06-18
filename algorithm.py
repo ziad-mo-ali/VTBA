@@ -64,7 +64,9 @@ class Graph:
         path = Path(input_path) / input_file_name
         if not path.exists():
             fmr.errors += 1
-            print(f"{write_message_step}- Error: Graph file not found: {path}")
+            print(
+                f"{write_message_step}- Error: Graph file not found: {path} (operation: load_graph)"
+            )
             return
         try:
             df = io_utils._read_tsv_dataframe(input_path, input_file_name, test_or_real)
@@ -78,7 +80,9 @@ class Graph:
                     self.node_weights[token] = weight
         except Exception as exc:
             fmr.errors += 1
-            print(f"{write_message_step}- Error loading graph: {exc}")
+            print(
+                f"{write_message_step}- Error loading graph from {path} (operation: load_graph): {type(exc).__name__}: {exc}"
+            )
 
     def has_node(self, token: str) -> bool:
         return token in self.node_weights
@@ -184,7 +188,9 @@ def write_assignment_stats(
         fmr.done_successfully += 1
     except Exception as exc:
         fmr.errors += 1
-        print(f"{write_message_step}- Error writing assignment stats: {exc}")
+        print(
+            f"{write_message_step}- Error writing assignment stats to {out_file} (operation: write_assignment_stats): {type(exc).__name__}: {exc}"
+        )
 
 
 def project_type(project_id: str, owner_repo: str) -> ProjectType:

@@ -144,9 +144,12 @@ def copy_file(
         shutil.copy2(source, destination)
         result.done_successfully = 1
         println("Copied successfully.", indentation_level + 1)
-    except Exception:
+    except Exception as exc:
         result.errors = 1
-        println("Error in copy.", indentation_level)
+        println(
+            f"Error copying file from {source} to {destination}: {type(exc).__name__}: {exc}",
+            indentation_level,
+        )
     result.processed = 1
     return result
 
@@ -166,9 +169,12 @@ def rename_file(
     try:
         source.rename(destination)
         result.done_successfully = 1
-    except Exception:
+    except Exception as exc:
         result.errors = 1
-        println("Error in rename.", indentation_level)
+        println(
+            f"Error renaming file from {source} to {destination}: {type(exc).__name__}: {exc}",
+            indentation_level,
+        )
     result.processed = 1
     return result
 
@@ -189,9 +195,12 @@ def create_folder_if_does_not_exist(
             path.mkdir(parents=True, exist_ok=True)
             println("Folder created.", indentation_level + 1)
             fmr.done_successfully = 1
-        except Exception:
+        except Exception as exc:
             fmr.errors += 1
-            println(f"Exception in creating folder \"{path_and_folder_name}\".", indentation_level + 1)
+            println(
+                f"Error creating directory {path}: {type(exc).__name__}: {exc}",
+                indentation_level + 1,
+            )
     else:
         println("Folder currently exists. No need to re-create it.", indentation_level + 1)
 
@@ -1153,8 +1162,12 @@ def save_tree_map_to_tsv_file(
                     if show_progress_interval and written % show_progress_interval == 0:
                         println(f"{indent(indentation_level+1)}{written}", 0)
         result.done_successfully = 1
-    except Exception:
+    except Exception as exc:
         result.errors = 1
+        println(
+            f"Error saving TSV file {Path(output_path) / output_file_name}: {type(exc).__name__}: {exc}",
+            indentation_level,
+        )
     result.processed = 1
     if wrap_output_in_lines:
         println("-----------------------------------", indentation_level)
@@ -1253,8 +1266,12 @@ def _save_dict_to_tsv(
                 if show_progress_interval and i % show_progress_interval == 0:
                     println(f"{indent(indentation_level+1)}{i}", 0)
         result.done_successfully = 1
-    except Exception:
+    except Exception as exc:
         result.errors = 1
+        println(
+            f"Error saving dict TSV file {Path(output_path) / output_file_name}: {type(exc).__name__}: {exc}",
+            indentation_level,
+        )
     result.processed = 1
     if wrap_output_in_lines:
         println("-----------------------------------", indentation_level)
@@ -1294,8 +1311,12 @@ def clean_file(
         Path(output_path_and_file_name).parent.mkdir(parents=True, exist_ok=True)
         df.to_csv(output_path_and_file_name, sep="\t", index=False)
         result.done_successfully = 1
-    except Exception:
+    except Exception as exc:
         result.errors = 1
+        println(
+            f"Error cleaning file {input_path_and_file_name} -> {output_path_and_file_name}: {type(exc).__name__}: {exc}",
+            indentation_level,
+        )
     result.processed = 1
     if wrap_output_in_lines:
         println("-----------------------------------", indentation_level)
