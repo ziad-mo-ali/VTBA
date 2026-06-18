@@ -974,6 +974,23 @@ def bug_assignment(
 
             d7 = datetime.now()
             total_running_time_for_this_assignment_type_in_the_loop = (d7 - d4).total_seconds()
+            debug_msg = (
+                f"[DEBUG-7.5] Before write_assignment_stats: "
+                f"len(projects_and_their_assignment_stats)={len(projects_and_their_assignment_stats)}, "
+                f"len(project_names_and_their_ids_ordered_by_name)={len(project_names_and_their_ids_ordered_by_name)}, "
+                f"sample_project_ids={list(projects_and_their_assignment_stats.keys())[:5]}, "
+                f"sample_projects_by_name={list(project_names_and_their_ids_ordered_by_name.items())[:5]}"
+            )
+            debug_log_file.write(debug_msg + "\n")
+            print(debug_msg)
+            if projects_and_their_assignment_stats:
+                sample_stats = [
+                    (project_id, len(stats))
+                    for project_id, stats in list(projects_and_their_assignment_stats.items())[:5]
+                ]
+                debug_msg2 = f"[DEBUG-7.5] sample assignment counts per project: {sample_stats}"
+                debug_log_file.write(debug_msg2 + "\n")
+                print(debug_msg2)
             write_assignment_stats(
                 output_path,
                 output_summaries_tsv_file_name,
