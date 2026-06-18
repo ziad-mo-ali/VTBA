@@ -230,8 +230,13 @@ def add_to_index(
             )
             evidence.word2vec_tf_score = _create_word2vec_score(word, so_tags)
             evidence_list.append(evidence)
-        except ValueError:
+        except ValueError as exc:
             fmr.errors += 1
+            print(
+                f"ERROR in add_to_index(): ValueError while creating Evidence: {exc}\n"
+                f"  project_id={project_id}, project_name={project_name}, login={login}\n"
+                f"  date={date}, word={word}, evidence_type={evidence_type}, seq_num={seq_num}"
+            )
 
 
 def index_assignment_evidence(
@@ -326,7 +331,10 @@ def index_assignment_evidence(
 
     except Exception as exc:
         fmr.errors += 1
-        print("ERROR!", exc)
+        print(
+            f"ERROR in index_assignment_evidence(): {type(exc).__name__}: {exc}"
+            f" (project_id={project_id}, bug_number={bug_number}, login={login})"
+        )
     finally:
         print(f"{indent(indentation_level+1)}Finished.")
         if wrap_output_in_lines:
@@ -418,11 +426,17 @@ def read_and_index_non_assignment_evidence(
                                 )
                     else:
                         fmr.errors += 1
+                        print(
+                            f"ERROR in read_and_index_non_assignment_evidence(): Invalid field count (got {len(fields)}, expected 6)"
+                            f" (project_id={project_id}, committer={committer}, line_number={i})"
+                        )
                     if show_progress_interval and i % show_progress_interval == 0:
                         print(f"{indent(indentation_level+2)}{i}")
 
     except Exception as exc:
-        print("ERROR!", exc)
+        print(
+            f"ERROR in read_and_index_non_assignment_evidence(): {type(exc).__name__}: {exc}"
+        )
         fmr.errors += 1
 
     print(f"{indent(indentation_level+1)}Finished.")
