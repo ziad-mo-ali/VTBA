@@ -328,6 +328,10 @@ def bug_assignment(
     test_or_real: int,
     write_message_step: str,
 ) -> None:
+    # Open debug log file
+    debug_log_path = Path(output_path) / "debug_log.txt"
+    debug_log_file = debug_log_path.open("w", encoding="utf-8")
+    
     print(f"{indent(indentation_level)}-----------------------------------")
     print(f"{indent(indentation_level)}{concat_two_write_message_steps(write_message_step, 'Bug assignment experiment:')}")
     print(f"{indent(indentation_level+1)}Started ...")
@@ -378,7 +382,9 @@ def bug_assignment(
     print(f"{indent(indentation_level+1)}Finished.")
 
     total_fmr = io_utils.add_file_manipulation_results(total_fmr, local_fmr)
-    print(f"[DEBUG-1] After loading graphs: errors={total_fmr.errors}, done_successfully={total_fmr.done_successfully}, processed={total_fmr.processed}")
+    debug_msg = f"[DEBUG-1] After loading graphs: errors={total_fmr.errors}, done_successfully={total_fmr.done_successfully}, processed={total_fmr.processed}"
+    debug_log_file.write(debug_msg + "\n")
+    print(debug_msg)
     stop_words: Set[str] = set()
     if general_experiment_type in {
         ExperimentType.JUST_CALCULATE_ORIGINAL_TF_IDF,
@@ -457,7 +463,9 @@ def bug_assignment(
         "4",
     )
     total_fmr = io_utils.add_file_manipulation_results(total_fmr, local_fmr)
-    print(f"[DEBUG-2] After reading projects: errors={total_fmr.errors}, done_successfully={total_fmr.done_successfully}, processed={total_fmr.processed}")
+    debug_msg = f"[DEBUG-2] After reading projects: errors={total_fmr.errors}, done_successfully={total_fmr.done_successfully}, processed={total_fmr.processed}"
+    debug_log_file.write(debug_msg + "\n")
+    print(debug_msg)
 
     evidence_types_to_consider_count = 0
     for j in range(total_evidence_types_count):
@@ -511,7 +519,9 @@ def bug_assignment(
                 concat_two_write_message_steps(write_message_step, f"5-{i+1}-{ASSIGNED_BUGS_TYPES__SHORT_DESCRIPTIONS[i]}"),
             )
             total_fmr = io_utils.add_file_manipulation_results(total_fmr, local_fmr)
-            print(f"[DEBUG-3] After reading assignments (assignment_type={i}): errors={total_fmr.errors}, done_successfully={total_fmr.done_successfully}, processed={total_fmr.processed}")
+            debug_msg = f"[DEBUG-3] After reading assignments (assignment_type={i}): errors={total_fmr.errors}, done_successfully={total_fmr.done_successfully}, processed={total_fmr.processed}"
+            debug_log_file.write(debug_msg + "\n")
+            print(debug_msg)
         else:
             projects_and_their_assignments = {}
             print(
@@ -552,9 +562,13 @@ def bug_assignment(
         concat_two_write_message_steps(write_message_step, "6"),
     )
     total_fmr = io_utils.add_file_manipulation_results(total_fmr, local_fmr)
-    print(f"[DEBUG-4a] After indexing evidence: errors={total_fmr.errors}, done_successfully={total_fmr.done_successfully}, processed={total_fmr.processed}")
+    debug_msg = f"[DEBUG-4a] After indexing evidence: errors={total_fmr.errors}, done_successfully={total_fmr.done_successfully}, processed={total_fmr.processed}"
+    debug_log_file.write(debug_msg + "\n")
+    print(debug_msg)
     total_fmr = io_utils.add_file_manipulation_results(total_fmr, local_fmr)
-    print(f"[DEBUG-4b] After second evidence update: errors={total_fmr.errors}, done_successfully={total_fmr.done_successfully}, processed={total_fmr.processed}")
+    debug_msg = f"[DEBUG-4b] After second evidence update: errors={total_fmr.errors}, done_successfully={total_fmr.done_successfully}, processed={total_fmr.processed}"
+    debug_log_file.write(debug_msg + "\n")
+    print(debug_msg)
 
     detailed_assignment_results_subfolder_name = create_folder_for_results(
         output_path,
@@ -565,7 +579,9 @@ def bug_assignment(
         indentation_level,
     )
     total_fmr = io_utils.add_file_manipulation_results(total_fmr, local_fmr)
-    print(f"[DEBUG-5] After creating results folder: errors={total_fmr.errors}, done_successfully={total_fmr.done_successfully}, processed={total_fmr.processed}")
+    debug_msg = f"[DEBUG-5] After creating results folder: errors={total_fmr.errors}, done_successfully={total_fmr.done_successfully}, processed={total_fmr.processed}"
+    debug_log_file.write(debug_msg + "\n")
+    print(debug_msg)
     d3 = datetime.now()
 
     if total_fmr.errors > 0:
@@ -619,7 +635,9 @@ def bug_assignment(
                 concat_two_write_message_steps(write_message_step, f"{step}-2"),
             )
             total_fmr = io_utils.add_file_manipulation_results(total_fmr, local_fmr)
-            print(f"[DEBUG-6] After reading communities (assignment_type={i}): errors={total_fmr.errors}, done_successfully={total_fmr.done_successfully}, processed={total_fmr.processed}")
+            debug_msg = f"[DEBUG-6] After reading communities (assignment_type={i}): errors={total_fmr.errors}, done_successfully={total_fmr.done_successfully}, processed={total_fmr.processed}"
+            debug_log_file.write(debug_msg + "\n")
+            print(debug_msg)
 
             d5 = datetime.now()
             loop_extra_time_reading_communities += (d5 - d4).total_seconds()
@@ -648,7 +666,9 @@ def bug_assignment(
                     concat_two_write_message_steps(write_message_step, f"{step}-3"),
                 )
                 total_fmr = io_utils.add_file_manipulation_results(total_fmr, local_fmr)
-                print(f"[DEBUG-7] After indexing assignment evidence (assignment_type={i}): errors={total_fmr.errors}, done_successfully={total_fmr.done_successfully}, processed={total_fmr.processed}")
+                debug_msg = f"[DEBUG-7] After indexing assignment evidence (assignment_type={i}): errors={total_fmr.errors}, done_successfully={total_fmr.done_successfully}, processed={total_fmr.processed}"
+                debug_log_file.write(debug_msg + "\n")
+                print(debug_msg)
                 if total_fmr.errors > 0:
                     print(f"{indent(indentation_level+3)}There are errors! Breaking ...")
                     print(f"{indent(indentation_level+3)}ERROR DETAILS: {total_fmr.errors} error(s) during processing")
@@ -712,7 +732,9 @@ def bug_assignment(
                             local_fmr,
                         )
                         total_fmr = io_utils.add_file_manipulation_results(total_fmr, local_fmr)
-                        print(f"[DEBUG-8] After removing assignments (assignment_type={i}, project_id={project_id}): errors={total_fmr.errors}, done_successfully={total_fmr.done_successfully}, processed={total_fmr.processed}")
+                        debug_msg = f"[DEBUG-8] After removing assignments (assignment_type={i}, project_id={project_id}): errors={total_fmr.errors}, done_successfully={total_fmr.done_successfully}, processed={total_fmr.processed}"
+                        debug_log_file.write(debug_msg + "\n")
+                        print(debug_msg)
 
                         for j, assignment_fields in enumerate(assignments_of_this_project):
                             a = Assignment(
@@ -870,7 +892,9 @@ def bug_assignment(
                 concat_two_write_message_steps(write_message_step, f"{step}-5"),
             )
             total_fmr = io_utils.add_file_manipulation_results(total_fmr, local_fmr)
-            print(f"[DEBUG-9] After writing assignment stats (assignment_type={i}): errors={total_fmr.errors}, done_successfully={total_fmr.done_successfully}, processed={total_fmr.processed}")
+            debug_msg = f"[DEBUG-9] After writing assignment stats (assignment_type={i}): errors={total_fmr.errors}, done_successfully={total_fmr.done_successfully}, processed={total_fmr.processed}"
+            debug_log_file.write(debug_msg + "\n")
+            print(debug_msg)
             if total_fmr.errors > 0:
                 print(f"{indent(indentation_level+3)}There are errors! Breaking ...")
                 break
@@ -908,6 +932,9 @@ def bug_assignment(
     print(f"{indent(indentation_level+2)}Net assignment time (in the loop): {net_assignment_time:.2f} seconds.")
     print(f"{indent(indentation_level)}-----------------------------------")
     print(f"{indent(indentation_level)}-----------------------------------")
+    
+    # Close debug log file
+    debug_log_file.close()
 
 
 def experiment(
