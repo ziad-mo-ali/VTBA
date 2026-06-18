@@ -478,66 +478,73 @@ def calculate_score_of_developer_for_bug_assignment(
     }:
         error_A = 0
         developer_data = logins_tags_types_and_their_evidence_in_a_project.get(login, {})
-        for i in range(wac.size):
-            word = wac.words[i]
-            if word not in developer_data:
+        # Cache frequently accessed WAC attributes
+        wac_words = wac.words
+        wac_counts = wac.counts
+        wac_size = wac.size
+        assignment_date = assignment.date
+        for idx in range(wac_size):
+            word = wac_words[idx]
+            types_and_evidence = developer_data.get(word)
+            if not types_and_evidence:
                 continue
-            types_and_evidence = developer_data[word]
             for et in evidence_types_to_consider:
-                if et not in types_and_evidence:
+                evidence_list = types_and_evidence.get(et)
+                if not evidence_list:
                     continue
-                evidence_list = types_and_evidence[et]
                 for e in evidence_list:
-                    if e.date < assignment.date:
-                        if word in words_and_the_developers_used_them_up_to_now_last_usage_date:
-                            developers_last_usage_date = words_and_the_developers_used_them_up_to_now_last_usage_date[word]
-                            number_of_developers_used_term = len(developers_last_usage_date)
-                            if login in developers_last_usage_date:
+                    if e.date < assignment_date:
+                        # use local lookups to avoid repeated dict access
+                        devs_last = words_and_the_developers_used_them_up_to_now_last_usage_date.get(word)
+                        if devs_last is not None:
+                            number_of_developers_used_term = len(devs_last)
+                            if login in devs_last:
                                 if general_experiment_type == ExperimentType.JUST_CALCULATE_ORIGINAL_TF_IDF:
                                     sub_score += (
-                                        wac.counts[i]
+                                        wac_counts[idx]
                                         * e.tf
                                         * math.log(number_of_community_members / number_of_developers_used_term)
                                     )
                                 else:
                                     if general_experiment_type == ExperimentType.JUST_CALCULATE_TIME_TF_IDF:
-                                        day_diff = get_difference_in_days(assignment.date, developers_last_usage_date[login])
+                                        day_diff = get_difference_in_days(assignment_date, devs_last[login])
                                         if day_diff == 0:
                                             day_diff = 1
                                         recency_for_time_tf_idf = 1.0 / number_of_developers_used_term + 1.0 / math.sqrt(day_diff)
                                         sub_score += (
                                             recency_for_time_tf_idf
-                                            * wac.counts[i]
+                                            * wac_counts[idx]
                                             * e.tf
                                             * math.log(number_of_community_members / number_of_developers_used_term)
                                         )
                             else:
                                 error_A += 1
                                 break
-                        elif word in words_and_the_developers_used_them_up_to_now_all_usage_dates:
-                            developers_all_usage_dates = words_and_the_developers_used_them_up_to_now_all_usage_dates[word]
-                            number_of_developers_used_term = len(developers_all_usage_dates)
-                            if login in developers_all_usage_dates:
-                                if general_experiment_type == ExperimentType.JUST_CALCULATE_TIME_TF_IDF2:
-                                    recency_for_time_tf_idf = 1.0 / number_of_developers_used_term
-                                    all_usage_dates = developers_all_usage_dates[login]
-                                    for d in all_usage_dates:
-                                        day_diff = get_difference_in_days(assignment.date, d)
-                                        if day_diff == 0:
-                                            day_diff = 1
-                                        recency_for_time_tf_idf += 1.0 / math.sqrt(day_diff)
-                                    sub_score += (
-                                        recency_for_time_tf_idf
-                                        * wac.counts[i]
-                                        * e.tf
-                                        * math.log(number_of_community_members / number_of_developers_used_term)
-                                    )
+                        else:
+                            devs_all = words_and_the_developers_used_them_up_to_now_all_usage_dates.get(word)
+                            if devs_all is not None:
+                                number_of_developers_used_term = len(devs_all)
+                                if login in devs_all:
+                                    if general_experiment_type == ExperimentType.JUST_CALCULATE_TIME_TF_IDF2:
+                                        recency_for_time_tf_idf = 1.0 / number_of_developers_used_term
+                                        all_usage_dates = devs_all[login]
+                                        for d in all_usage_dates:
+                                            day_diff = get_difference_in_days(assignment_date, d)
+                                            if day_diff == 0:
+                                                day_diff = 1
+                                            recency_for_time_tf_idf += 1.0 / math.sqrt(day_diff)
+                                        sub_score += (
+                                            recency_for_time_tf_idf
+                                            * wac_counts[idx]
+                                            * e.tf
+                                            * math.log(number_of_community_members / number_of_developers_used_term)
+                                        )
+                                else:
+                                    error_A += 1
+                                    break
                             else:
                                 error_A += 1
                                 break
-                        else:
-                            error_A += 1
-                            break
         if error_A > 0:
             print(f"{error_A} ERRORS-A in calculate_score_of_developer_for_bug_assignment(): the word entry is missing for calculating idf!")
         score = sub_score
@@ -552,17 +559,25 @@ def calculate_score_of_developer_for_bug_assignment(
         errors4_both_are_one = 0
         developer_data = logins_tags_types_and_their_evidence_in_a_project.get(login, {})
         assignment_date = assignment.date
-        for i in range(wac.size):
-            word = wac.words[i]
-            if word not in developer_data:
+        # Cache frequently accessed WAC attributes and other locals
+        wac_words = wac.words
+        wac_counts = wac.counts
+        wac_size = wac.size
+        for idx in range(wac_size):
+            word = wac_words[idx]
+            types_and_evidence = developer_data.get(word)
+            if not types_and_evidence:
                 continue
-            types_and_evidence = developer_data[word]
-            term_weight = updating_graph.get_node_weight(word) if general_experiment_type == ExperimentType.CALCULATE_VTBA_GH__CALCULATE_WEIGHS_ONLINE else graph.get_node_weight(word)
+            term_weight = (
+                updating_graph.get_node_weight(word)
+                if general_experiment_type == ExperimentType.CALCULATE_VTBA_GH__CALCULATE_WEIGHS_ONLINE
+                else graph.get_node_weight(word)
+            )
             sub_score = 0.0
             for et in evidence_types_to_consider:
-                if et not in types_and_evidence:
+                evidence_list = types_and_evidence.get(et)
+                if not evidence_list:
                     continue
-                evidence_list = types_and_evidence[et]
                 for e in evidence_list:
                     if e.date < assignment_date:
                         evidence_date = e.date
@@ -598,20 +613,20 @@ def calculate_score_of_developer_for_bug_assignment(
                 if option4_idf == BTOption4IDF.ONE:
                     score += sub_score
                 elif option4_idf == BTOption4IDF.FREQ:
-                    score += sub_score * wac.counts[i]
+                    score += sub_score * wac_counts[idx]
                 elif option4_idf == BTOption4IDF.FREQ__TOTAL_NUMBER_OF_TERMS:
-                    score += sub_score * wac.counts[i] / wac.total_number_of_words
+                    score += sub_score * wac_counts[idx] / wac.total_number_of_words
                 elif option4_idf == BTOption4IDF.LOG_BASED:
-                    score += sub_score * (1 + math.log10(wac.counts[i]))
+                    score += sub_score * (1 + math.log10(wac_counts[idx]))
             else:
                 if option4_idf == BTOption4IDF.ONE:
                     score += sub_score * term_weight
                 elif option4_idf == BTOption4IDF.FREQ:
-                    score += sub_score * term_weight * wac.counts[i]
+                    score += sub_score * term_weight * wac_counts[idx]
                 elif option4_idf == BTOption4IDF.FREQ__TOTAL_NUMBER_OF_TERMS:
-                    score += sub_score * term_weight * wac.counts[i] / wac.total_number_of_words
+                    score += sub_score * term_weight * wac_counts[idx] / wac.total_number_of_words
                 elif option4_idf == BTOption4IDF.LOG_BASED:
-                    score += sub_score * term_weight * (1 + math.log10(wac.counts[i]))
+                    score += sub_score * term_weight * (1 + math.log10(wac_counts[idx]))
 
         if errors1 > 0:
             print(f"{errors1} ERRORS1 in seqNum1: The sequence number of the assignment evidence is greater than the sequence number of the bug!")

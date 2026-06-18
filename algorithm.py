@@ -946,22 +946,27 @@ def bug_assignment(
                             if general_experiment_type == ExperimentType.CALCULATE_VTBA_GH__CALCULATE_WEIGHS_ONLINE:
                                 bug_text2 = re.sub(allValidCharactersInSOURCECODE_Strict_ForRegEx, " ", bug_text).lower()
                                 words1 = bug_text2.split()
-                                # The Java version updates occurrences and node weights online; this is a placeholder.
-                                for keyword in words1:
-                                    occurrences[keyword] = occurrences.get(keyword, 0) + 1
+                                # The Java version updates occurrences and node weights online; aggregate counts and update once per unique token.
+                                from collections import Counter
+                                counts = Counter(words1)
+                                for keyword, cnt in counts.items():
+                                    occurrences[keyword] = occurrences.get(keyword, 0) + cnt
+                                for keyword in counts.keys():
                                     if occurrences[keyword] > 0:
                                         node_weight = math.log10((1 + occurrences[keyword]) / occurrences[keyword]) / math.log10(1 + occurrences[keyword])
                                         updating_graph.set_node_weight(keyword, node_weight)
 
-                            for community_member in community:
-                                login = community_member[0]
+                            # Precompute filtered evidence types and community logins to avoid per-developer allocations
+                            evidence_types_filtered = [et for et in evidence_types_to_consider if et is not None]
+                            community_logins = [cm[0] for cm in community]
+                            for login in community_logins:
                                 scores[login] = alg_prep.calculate_score_of_developer_for_bug_assignment(
                                     login,
                                     a,
                                     graph,
                                     updating_graph,
                                     i,
-                                    [et for et in evidence_types_to_consider if et is not None],
+                                    evidence_types_filtered,
                                     logins_tags_types_and_their_evidence,
                                     previous_assignees_in_this_project,
                                     wac,
@@ -997,17 +1002,24 @@ def bug_assignment(
                                 ExperimentType.JUST_CALCULATE_ORIGINAL_TF_IDF,
                                 ExperimentType.JUST_CALCULATE_TIME_TF_IDF,
                             }:
-                                for k in range(wac.size):
-                                    word = wac.words[k]
-                                    developers_last_usage_date = words_and_the_developers_used_them_up_to_now_last_usage_date.setdefault(word, {})
-                                    developers_last_usage_date[a.login] = a.date
+                                d_last = words_and_the_developers_used_them_up_to_now_last_usage_date
+                                for word in wac.words:
+                                    if word in d_last:
+                                        d_last[word][a.login] = a.date
+                                    else:
+                                        d_last[word] = {a.login: a.date}
 
                             if general_experiment_type == ExperimentType.JUST_CALCULATE_TIME_TF_IDF2:
-                                for k in range(wac.size):
-                                    word = wac.words[k]
-                                    developers_all_usage_dates = words_and_the_developers_used_them_up_to_now_all_usage_dates.setdefault(word, {})
-                                    dates = developers_all_usage_dates.setdefault(a.login, set())
-                                    dates.add(a.date)
+                                d_all = words_and_the_developers_used_them_up_to_now_all_usage_dates
+                                for word in wac.words:
+                                    if word in d_all:
+                                        user_dates = d_all[word].get(a.login)
+                                        if user_dates is None:
+                                            user_dates = set()
+                                            d_all[word][a.login] = user_dates
+                                        user_dates.add(a.date)
+                                    else:
+                                        d_all[word] = {a.login: {a.date}}
 
                             assignment_stat = AssignmentStat(
                                 bug_number=a.bug_number,
