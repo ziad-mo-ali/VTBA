@@ -172,25 +172,61 @@ def write_assignment_stats(
     indentation_level: int,
     write_message_step: str,
 ) -> None:
+    # Ensure main output dir exists
     output_dir = Path(output_path)
     output_dir.mkdir(parents=True, exist_ok=True)
-    out_file = output_dir / f"{output_summaries_tsv_file_name}-{sanitize_folder_name(assignment_type_description)}.tsv"
+
+    # Create (or ensure) the assignment-results overall folder (e.g., outDetails)
+    assignment_results_dir = output_dir / assignment_results_overall_folder_name
+    assignment_results_dir.mkdir(parents=True, exist_ok=True)
+
+    # detailed_assignment_results_subfolder_name may be either a full path (returned by
+    # create_folder_for_results) or just a folder name; handle both cases.
+    detailed_dir = Path(detailed_assignment_results_subfolder_name)
+    if not detailed_dir.is_absolute():
+        detailed_dir = assignment_results_dir / detailed_assignment_results_subfolder_name
+    detailed_dir.mkdir(parents=True, exist_ok=True)
+
+    # Java version writes a detailed file named: <folderName> - <assignment_type_description>.tsv
+    detailed_folder_name = detailed_dir.name
+    detailed_file = detailed_dir / f"{detailed_folder_name} - {sanitize_folder_name(assignment_type_description)}.tsv"
+
+    # Main overall summary file (per-assignment-type) in the top-level output dir
+    overall_file = output_dir / f"{output_summaries_tsv_file_name} - {sanitize_folder_name(assignment_type_description)}.tsv"
+
+    # Combined overall file for ALL assigned types
+    combined_file = output_dir / f"{output_summaries_tsv_file_name} - ALL_ASSIGNED_TYPES.tsv"
+
     try:
-        with out_file.open("w", encoding="utf-8") as writer:
+        # Write detailed stats (simple tabular form similar to previous Python behavior)
+        with detailed_file.open("w", encoding="utf-8") as writer:
             writer.write("project_id\tbug_number\tassigned_login\trank\tcommunity_size\n")
             for project_id in project_names_and_their_ids_ordered_by_name.values():
                 assignment_stats = projects_and_their_assignment_stats.get(project_id, [])
                 community_size = len(projects_and_their_communities.get(project_id, []))
                 for stat in assignment_stats:
-                    writer.write(
-                        f"{project_id}\t{stat.bug_number}\t{stat.login}\t{stat.rank}\t{community_size}\n"
-                    )
+                    writer.write(f"{project_id}\t{stat.bug_number}\t{stat.login}\t{stat.rank}\t{community_size}\n")
+
+        # Append (or create) the per-assignment-type overall summary file. Use append to match Java.
+        need_header = not overall_file.exists()
+        with overall_file.open("a", encoding="utf-8") as writer2:
+            if need_header:
+                writer2.write("project_id\tbug_number\tassigned_login\trank\tcommunity_size\n")
+            for project_id in project_names_and_their_ids_ordered_by_name.values():
+                assignment_stats = projects_and_their_assignment_stats.get(project_id, [])
+                community_size = len(projects_and_their_communities.get(project_id, []))
+                for stat in assignment_stats:
+                    writer2.write(f"{project_id}\t{stat.bug_number}\t{stat.login}\t{stat.rank}\t{community_size}\n")
+
+        # Ensure combined file exists (Java writes more complex headers and summaries; create placeholder if missing)
+        if not combined_file.exists():
+            with combined_file.open("w", encoding="utf-8") as writer3:
+                writer3.write("Experiment title\tTIME\tMRR\tMAP\tTop1\tTop5\tTop10\t...\n")
+
         fmr.done_successfully += 1
     except Exception as exc:
         fmr.errors += 1
-        print(
-            f"{write_message_step}- Error writing assignment stats to {out_file} (operation: write_assignment_stats): {type(exc).__name__}: {exc}"
-        )
+        print(f"{write_message_step}- Error writing assignment stats to {detailed_file} (operation: write_assignment_stats): {type(exc).__name__}: {exc}")
 
 
 def project_type(project_id: str, owner_repo: str) -> ProjectType:
