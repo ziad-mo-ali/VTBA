@@ -205,8 +205,8 @@ def write_assignment_stats(
         )
         with detailed_file.open("w", encoding="utf-8") as writer:
             writer.write(header)
-            # Iterate owner_repo->project_id in the same order as provided
-            for owner_repo, project_id in project_names_and_their_ids_ordered_by_name.items():
+            # Iterate owner_repo->project_id in alphabetical order by project name, matching Java TreeMap ordering.
+            for owner_repo, project_id in sorted(project_names_and_their_ids_ordered_by_name.items()):
                 # Normalize key types for lookup (handle both string and potential int keys)
                 possible_keys = [project_id, str(project_id)]
                 assignment_stats = None
@@ -217,6 +217,8 @@ def write_assignment_stats(
                 if assignment_stats is None:
                     assignment_stats = []
 
+                assignment_stats = sorted(assignment_stats, key=lambda stat: stat.date)
+
                 community = None
                 for k in possible_keys:
                     if k in projects_and_their_communities:
@@ -225,15 +227,13 @@ def write_assignment_stats(
                 community_size = len(community) if community is not None else 0
 
                 for stat in assignment_stats:
-                    # Format assignment date: use isoformat if available
                     assignment_date = (
-                        stat.date.isoformat()
-                        if hasattr(stat.date, "isoformat")
+                        stat.date.strftime("%a %b %d %H:%M:%S MST %Y")
+                        if hasattr(stat.date, "strftime")
                         else str(stat.date)
                     )
                     our_assignee = stat.login
                     our_rank = stat.rank
-                    # Real assignees: comma-separated logins from the dict keys
                     real_assignees = (
                         ", ".join(list(stat.real_assignees_ranks.keys()))
                         if stat.real_assignees_ranks
@@ -248,7 +248,7 @@ def write_assignment_stats(
         with overall_file.open("a", encoding="utf-8") as writer2:
             if need_header:
                 writer2.write(header)
-            for owner_repo, project_id in project_names_and_their_ids_ordered_by_name.items():
+            for owner_repo, project_id in sorted(project_names_and_their_ids_ordered_by_name.items()):
                 possible_keys = [project_id, str(project_id)]
                 assignment_stats = None
                 for k in possible_keys:
@@ -257,6 +257,8 @@ def write_assignment_stats(
                         break
                 if assignment_stats is None:
                     assignment_stats = []
+
+                assignment_stats = sorted(assignment_stats, key=lambda stat: stat.date)
 
                 community = None
                 for k in possible_keys:
@@ -267,8 +269,8 @@ def write_assignment_stats(
 
                 for stat in assignment_stats:
                     assignment_date = (
-                        stat.date.isoformat()
-                        if hasattr(stat.date, "isoformat")
+                        stat.date.strftime("%a %b %d %H:%M:%S MST %Y")
+                        if hasattr(stat.date, "strftime")
                         else str(stat.date)
                     )
                     our_assignee = stat.login
@@ -369,16 +371,31 @@ def update_rank_of_real_assignees_and_return_the_best_assignee(
     scores: Dict[str, float],
     rnd: random.Random,
 ) -> Assignee:
-    current_ranks = real_assignees.setdefault(bug_number, {})
-    ordered = sorted(scores.items(), key=lambda item: (-item[1], item[0]))
-    best_login = ordered[0][0] if ordered else ""
-    rank = 1
-    for login, _score in ordered:
-        if login in current_ranks:
-            current_ranks[login] = rank
-        rank += 1
-    best_rank = current_ranks.get(best_login, rank if best_login else -1)
-    return Assignee(login=best_login, rank=best_rank)
+    real_assignees_of_this_bug = real_assignees.setdefault(bug_number, {})
+    top_ra = Assignee(login="", rank=10**9)
+    booked_ranks: Set[int] = set()
+
+    for login in real_assignees_of_this_bug:
+        score_of_this_ra = scores.get(login, 0.0)
+        a = sum(1 for score in scores.values() if score > score_of_this_ra)
+        b = sum(1 for score in scores.values() if score == score_of_this_ra)
+
+        if b <= 1:
+            fair_random_rank = a + 1
+        else:
+            fair_random_rank = a + rnd.randrange(b) + 1
+            while fair_random_rank in booked_ranks:
+                fair_random_rank = a + rnd.randrange(b) + 1
+            booked_ranks.add(fair_random_rank)
+
+        real_assignees_of_this_bug[login] = fair_random_rank
+        if fair_random_rank < (top_ra.rank or 10**9):
+            top_ra.rank = fair_random_rank
+            top_ra.login = login
+
+    if top_ra.rank == 10**9:
+        return Assignee(login="", rank=-1)
+    return top_ra
 
 
 def read_and_index_commit_diff_evidence(
@@ -432,13 +449,19 @@ def maybe_float(value: Optional[str]) -> float:
 
 
 def parse_iso_datetime_or_now(value: str) -> datetime:
-    try:
-        return datetime.strptime(value, "%Y-%m-%dT%H:%M:%S.%fZ")
-    except ValueError:
+    date_formats = [
+        "%Y-%m-%dT%H:%M:%S.%fZ",
+        "%Y-%m-%dT%H:%M:%SZ",
+        "%Y-%m-%dT%H:%M:%S.%f",
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%d %H:%M:%S",
+    ]
+    for date_format in date_formats:
         try:
-            return datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ")
+            return datetime.strptime(value, date_format)
         except ValueError:
-            return datetime.now()
+            continue
+    return datetime.now()
 
 
 def bug_assignment(
