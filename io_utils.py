@@ -282,11 +282,29 @@ def _read_tsv_dataframe(
 ) -> pd.DataFrame:
     path = Path(input_path) / input_file_name
     
-    # Try UTF-8 first, fall back to latin-1 if that fails
+    # Try UTF-8 first, fall back to latin-1 if that fails.
+    # Explicitly disable automatic index column inference so TSV rows stay aligned
+    # even when there is a trailing tab or empty final field.
     try:
-        df = pd.read_csv(path, sep="\t", dtype=str, keep_default_na=False, na_filter=False, encoding='utf-8')
+        df = pd.read_csv(
+            path,
+            sep="\t",
+            dtype=str,
+            keep_default_na=False,
+            na_filter=False,
+            encoding='utf-8',
+            index_col=False,
+        )
     except UnicodeDecodeError:
-        df = pd.read_csv(path, sep="\t", dtype=str, keep_default_na=False, na_filter=False, encoding='latin-1')
+        df = pd.read_csv(
+            path,
+            sep="\t",
+            dtype=str,
+            keep_default_na=False,
+            na_filter=False,
+            encoding='latin-1',
+            index_col=False,
+        )
     
     if test_or_real > -1:
         df = df.iloc[: int(test_or_real)]
