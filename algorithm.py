@@ -198,25 +198,89 @@ def write_assignment_stats(
     combined_file = output_dir / f"{output_summaries_tsv_file_name} - ALL_ASSIGNED_TYPES.tsv"
 
     try:
-        # Write detailed stats (simple tabular form similar to previous Python behavior)
+        # Write detailed stats using the exact Java column names and data structure
+        header = (
+            "project\tbugNumber\tassignmentDate\tourTopRecommendedRealAssignee\t"
+            "ourTopRecommendedRealAssigneeRank\ttotalCommunityMembers\trealAssigneesTillNow\n"
+        )
         with detailed_file.open("w", encoding="utf-8") as writer:
-            writer.write("project_id\tbug_number\tassigned_login\trank\tcommunity_size\n")
-            for project_id in project_names_and_their_ids_ordered_by_name.values():
-                assignment_stats = projects_and_their_assignment_stats.get(project_id, [])
-                community_size = len(projects_and_their_communities.get(project_id, []))
+            writer.write(header)
+            # Iterate owner_repo->project_id in the same order as provided
+            for owner_repo, project_id in project_names_and_their_ids_ordered_by_name.items():
+                # Normalize key types for lookup (handle both string and potential int keys)
+                possible_keys = [project_id, str(project_id)]
+                assignment_stats = None
+                for k in possible_keys:
+                    if k in projects_and_their_assignment_stats:
+                        assignment_stats = projects_and_their_assignment_stats[k]
+                        break
+                if assignment_stats is None:
+                    assignment_stats = []
+
+                community = None
+                for k in possible_keys:
+                    if k in projects_and_their_communities:
+                        community = projects_and_their_communities[k]
+                        break
+                community_size = len(community) if community is not None else 0
+
                 for stat in assignment_stats:
-                    writer.write(f"{project_id}\t{stat.bug_number}\t{stat.login}\t{stat.rank}\t{community_size}\n")
+                    # Format assignment date: use isoformat if available
+                    assignment_date = (
+                        stat.date.isoformat()
+                        if hasattr(stat.date, "isoformat")
+                        else str(stat.date)
+                    )
+                    our_assignee = stat.login
+                    our_rank = stat.rank
+                    # Real assignees: comma-separated logins from the dict keys
+                    real_assignees = (
+                        ", ".join(list(stat.real_assignees_ranks.keys()))
+                        if stat.real_assignees_ranks
+                        else ""
+                    )
+                    writer.write(
+                        f"{owner_repo}\t{stat.bug_number}\t{assignment_date}\t{our_assignee}\t{our_rank}\t{community_size}\t{real_assignees}\n"
+                    )
 
         # Append (or create) the per-assignment-type overall summary file. Use append to match Java.
         need_header = not overall_file.exists()
         with overall_file.open("a", encoding="utf-8") as writer2:
             if need_header:
-                writer2.write("project_id\tbug_number\tassigned_login\trank\tcommunity_size\n")
-            for project_id in project_names_and_their_ids_ordered_by_name.values():
-                assignment_stats = projects_and_their_assignment_stats.get(project_id, [])
-                community_size = len(projects_and_their_communities.get(project_id, []))
+                writer2.write(header)
+            for owner_repo, project_id in project_names_and_their_ids_ordered_by_name.items():
+                possible_keys = [project_id, str(project_id)]
+                assignment_stats = None
+                for k in possible_keys:
+                    if k in projects_and_their_assignment_stats:
+                        assignment_stats = projects_and_their_assignment_stats[k]
+                        break
+                if assignment_stats is None:
+                    assignment_stats = []
+
+                community = None
+                for k in possible_keys:
+                    if k in projects_and_their_communities:
+                        community = projects_and_their_communities[k]
+                        break
+                community_size = len(community) if community is not None else 0
+
                 for stat in assignment_stats:
-                    writer2.write(f"{project_id}\t{stat.bug_number}\t{stat.login}\t{stat.rank}\t{community_size}\n")
+                    assignment_date = (
+                        stat.date.isoformat()
+                        if hasattr(stat.date, "isoformat")
+                        else str(stat.date)
+                    )
+                    our_assignee = stat.login
+                    our_rank = stat.rank
+                    real_assignees = (
+                        ", ".join(list(stat.real_assignees_ranks.keys()))
+                        if stat.real_assignees_ranks
+                        else ""
+                    )
+                    writer2.write(
+                        f"{owner_repo}\t{stat.bug_number}\t{assignment_date}\t{our_assignee}\t{our_rank}\t{community_size}\t{real_assignees}\n"
+                    )
 
         # Ensure combined file exists (Java writes more complex headers and summaries; create placeholder if missing)
         if not combined_file.exists():
