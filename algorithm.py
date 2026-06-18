@@ -294,10 +294,54 @@ def write_assignment_stats(
 
 
 def project_type(project_id: str, owner_repo: str) -> ProjectType:
-    if owner_repo in list(ALL) if isinstance(ALL, str) else False:
-        return ProjectType.FASE_13
-    if owner_repo in [proj.lower() for proj in ASSIGNED_BUGS_TYPES__SHORT_DESCRIPTIONS]:
-        return ProjectType.FASE_13
+    """
+    Determine project type by checking against hardcoded lists of known projects.
+    Mirrors Java's AlgPrep.projectType logic.
+    """
+    list_of_13_projects__owner_repo = [
+        "rails/rails", "yui/yui3", "lift/framework", "fog/fog", "julialang/julia",
+        "angular/angular.js", "elastic/elasticsearch", "travis-ci/travis-ci",
+        "saltstack/salt", "khan/khan-exercises", "adobe/brackets",
+        "html5rocks/www.html5rocks.com", "tryghost/ghost",
+    ]
+    list_of_13_projects__id = [
+        "8514", "85670", "1295197", "203666", "1644196", "460078", "507775",
+        "1420493", "1390248", "1723225", "2935735", "5238231", "9852918",
+    ]
+
+    list_of_3_projects_with_no_public_bugs__owner_repo = [
+        "scala/scala", "mozilla-b2g/gaia", "edx/edx-platform"
+    ]
+    list_of_3_projects_with_no_public_bugs__id = [
+        "2888818", "2317369", "10391073"
+    ]
+
+    list_of_families_of_two_projects__owner_repo = [
+        "rails/activeresource", "rails/arel", "rails/sprockets", "rails/jquery-rails",
+        "rails/execjs", "rails/sass-rails", "rails/jbuilder", "rails/strong_parameters",
+        "rails/sprockets-rails", "rails/protected_attributes", "rails/spring",
+        "rails/web-console", "rails/globalid", "angular/angular-seed", "angular/angularjs.org",
+        "angular/angular-phonecat", "angular/protractor", "angular/dgeni-packages",
+        "angular/material",
+    ]
+    list_of_families_of_two_projects__id = [
+        "3711416", "337788", "32104924", "1795951", "32104914", "1795273", "2861056",
+        "3710607", "1784628", "5674986", "7362671", "12496351", "22991474",
+        "1195004", "1343653", "1452079", "7639232", "16757508", "21399598",
+    ]
+
+    for i in range(len(list_of_13_projects__owner_repo)):
+        if owner_repo == list_of_13_projects__owner_repo[i] or project_id == list_of_13_projects__id[i]:
+            return ProjectType.FASE_13
+
+    for i in range(len(list_of_families_of_two_projects__owner_repo)):
+        if owner_repo == list_of_families_of_two_projects__owner_repo[i] or project_id == list_of_families_of_two_projects__id[i]:
+            return ProjectType.FASE_13_EXTENSION__PROJECT_FAMILIES_OF_TWO_PROJECTS
+
+    for i in range(len(list_of_3_projects_with_no_public_bugs__owner_repo)):
+        if owner_repo == list_of_3_projects_with_no_public_bugs__owner_repo[i] or project_id == list_of_3_projects_with_no_public_bugs__id[i]:
+            return ProjectType.FASE_3__NO_PUBLIC_BUGS
+
     return ProjectType.OTHERS_UNKNOWN
 
 
@@ -789,9 +833,20 @@ def bug_assignment(
             rnd = random.Random()
             projects_and_their_assignments = projects_and_their_assignments_al_for_different_assignment_types[i]
 
+            debug_msg = (
+                f"[DEBUG-7.25] Assignment loop setup (assignment_type={i}): "
+                f"len(projects_and_their_assignments)={len(projects_and_their_assignments)}, "
+                f"project_ids={list(projects_and_their_assignments.keys())[:5]}"
+            )
+            debug_log_file.write(debug_msg + "\n")
+            print(debug_msg)
+
             for project_id, assignments_of_this_project in projects_and_their_assignments.items():
                 project_info = projects.get(project_id)
                 if project_info is None:
+                    debug_msg = f"[DEBUG-7.26a] Skipping project_id={project_id} (not in projects dict)"
+                    debug_log_file.write(debug_msg + "\n")
+                    print(debug_msg)
                     continue
                 project_owner_repo = project_info[0] if isinstance(project_info, (list, tuple)) else str(project_info)
                 project = Project(
@@ -802,12 +857,25 @@ def bug_assignment(
                     main_language_percentages=project_info[3] if isinstance(project_info, (list, tuple)) and len(project_info) > 3 else "[]",
                     overal_starting_date=datetime(1970, 1, 1),
                 )
-                if project_type(project_id, project.owner_repo) == ProjectType.FASE_13:
+                project_type_result = project_type(project_id, project.owner_repo)
+                debug_msg = (
+                    f"[DEBUG-7.26b] Processing project_id={project_id}, owner_repo={project.owner_repo}, "
+                    f"project_type={project_type_result}, is_FASE_13={project_type_result == ProjectType.FASE_13}"
+                )
+                debug_log_file.write(debug_msg + "\n")
+                print(debug_msg)
+                if project_type_result == ProjectType.FASE_13:
                     project_names_and_their_ids_ordered_by_name[project.owner_repo] = project_id
-                    if (
-                        (is_main_run and is_a_project_which_is_used_for_main_run(project_id, project.owner_repo))
-                        or (not is_main_run and is_a_project_which_is_used_for_tuning(project_id, project.owner_repo))
-                    ):
+                    is_main_run_check = is_main_run and is_a_project_which_is_used_for_main_run(project_id, project.owner_repo)
+                    is_tuning_check = (not is_main_run) and is_a_project_which_is_used_for_tuning(project_id, project.owner_repo)
+                    debug_msg2 = (
+                        f"[DEBUG-7.26c] Project {project.owner_repo}: is_main_run={is_main_run}, "
+                        f"is_main_run_check={is_main_run_check}, is_tuning_check={is_tuning_check}, "
+                        f"passes_filter={is_main_run_check or is_tuning_check}"
+                    )
+                    debug_log_file.write(debug_msg2 + "\n")
+                    print(debug_msg2)
+                    if is_main_run_check or is_tuning_check:
                         if wrap_output_in_lines:
                             print(f"{indent(indentation_level+4)}-----------------------------------")
                         print(f"{indent(indentation_level+4)}{concat_two_write_message_steps(step, str(project_counter))}- {project.owner_repo} (projectId: {project_id})")
