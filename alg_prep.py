@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import math
-import numpy as np
 import re
 from collections import defaultdict
 from datetime import datetime
@@ -484,7 +483,6 @@ def calculate_score_of_developer_for_bug_assignment(
         wac_counts = wac.counts
         wac_size = wac.size
         assignment_date = assignment.date
-        assignment_date_ts = assignment_date.timestamp()
         for idx in range(wac_size):
             word = wac_words[idx]
             types_and_evidence = developer_data.get(word)
@@ -494,55 +492,59 @@ def calculate_score_of_developer_for_bug_assignment(
                 evidence_list = types_and_evidence.get(et)
                 if not evidence_list:
                     continue
-                # vectorize over evidence_list: collect timestamps and tf values
-                dates_ts = np.fromiter((ev.date.timestamp() for ev in evidence_list), dtype=float)
-                # prefix length: evidence with date < assignment_date
-                prefix_len = int(np.searchsorted(dates_ts, assignment_date_ts, side="left"))
-                if prefix_len == 0:
-                    continue
-                tf_sum = float(np.fromiter((ev.tf for ev in evidence_list[:prefix_len]), dtype=float).sum())
-
-                # now compute recency scalars / idf multiplier exactly like original
-                devs_last = words_and_the_developers_used_them_up_to_now_last_usage_date.get(word)
-                if devs_last is not None:
-                    number_of_developers_used_term = len(devs_last)
-                    if login in devs_last:
-                        if general_experiment_type == ExperimentType.JUST_CALCULATE_ORIGINAL_TF_IDF:
-                            sub_score += wac_counts[idx] * tf_sum * math.log(number_of_community_members / number_of_developers_used_term)
+                for e in evidence_list:
+                    if e.date < assignment_date:
+                        # use local lookups to avoid repeated dict access
+                        devs_last = words_and_the_developers_used_them_up_to_now_last_usage_date.get(word)
+                        if devs_last is not None:
+                            number_of_developers_used_term = len(devs_last)
+                            if login in devs_last:
+                                if general_experiment_type == ExperimentType.JUST_CALCULATE_ORIGINAL_TF_IDF:
+                                    sub_score += (
+                                        wac_counts[idx]
+                                        * e.tf
+                                        * math.log(number_of_community_members / number_of_developers_used_term)
+                                    )
+                                else:
+                                    if general_experiment_type == ExperimentType.JUST_CALCULATE_TIME_TF_IDF:
+                                        day_diff = get_difference_in_days(assignment_date, devs_last[login])
+                                        if day_diff == 0:
+                                            day_diff = 1
+                                        recency_for_time_tf_idf = 1.0 / number_of_developers_used_term + 1.0 / math.sqrt(day_diff)
+                                        sub_score += (
+                                            recency_for_time_tf_idf
+                                            * wac_counts[idx]
+                                            * e.tf
+                                            * math.log(number_of_community_members / number_of_developers_used_term)
+                                        )
+                            else:
+                                error_A += 1
+                                break
                         else:
-                            if general_experiment_type == ExperimentType.JUST_CALCULATE_TIME_TF_IDF:
-                                day_diff = get_difference_in_days(assignment_date, devs_last[login])
-                                if day_diff == 0:
-                                    day_diff = 1
-                                recency_for_time_tf_idf = 1.0 / number_of_developers_used_term + 1.0 / math.sqrt(day_diff)
-                                sub_score += (
-                                    recency_for_time_tf_idf * wac_counts[idx] * tf_sum * math.log(number_of_community_members / number_of_developers_used_term)
-                                )
-                    else:
-                        error_A += 1
-                        continue
-                else:
-                    devs_all = words_and_the_developers_used_them_up_to_now_all_usage_dates.get(word)
-                    if devs_all is not None:
-                        number_of_developers_used_term = len(devs_all)
-                        if login in devs_all:
-                            if general_experiment_type == ExperimentType.JUST_CALCULATE_TIME_TF_IDF2:
-                                recency_for_time_tf_idf = 1.0 / number_of_developers_used_term
-                                all_usage_dates = devs_all[login]
-                                for d in all_usage_dates:
-                                    day_diff = get_difference_in_days(assignment_date, d)
-                                    if day_diff == 0:
-                                        day_diff = 1
-                                    recency_for_time_tf_idf += 1.0 / math.sqrt(day_diff)
-                                sub_score += (
-                                    recency_for_time_tf_idf * wac_counts[idx] * tf_sum * math.log(number_of_community_members / number_of_developers_used_term)
-                                )
-                        else:
-                            error_A += 1
-                            continue
-                    else:
-                        error_A += 1
-                        continue
+                            devs_all = words_and_the_developers_used_them_up_to_now_all_usage_dates.get(word)
+                            if devs_all is not None:
+                                number_of_developers_used_term = len(devs_all)
+                                if login in devs_all:
+                                    if general_experiment_type == ExperimentType.JUST_CALCULATE_TIME_TF_IDF2:
+                                        recency_for_time_tf_idf = 1.0 / number_of_developers_used_term
+                                        all_usage_dates = devs_all[login]
+                                        for d in all_usage_dates:
+                                            day_diff = get_difference_in_days(assignment_date, d)
+                                            if day_diff == 0:
+                                                day_diff = 1
+                                            recency_for_time_tf_idf += 1.0 / math.sqrt(day_diff)
+                                        sub_score += (
+                                            recency_for_time_tf_idf
+                                            * wac_counts[idx]
+                                            * e.tf
+                                            * math.log(number_of_community_members / number_of_developers_used_term)
+                                        )
+                                else:
+                                    error_A += 1
+                                    break
+                            else:
+                                error_A += 1
+                                break
         if error_A > 0:
             print(f"{error_A} ERRORS-A in calculate_score_of_developer_for_bug_assignment(): the word entry is missing for calculating idf!")
         score = sub_score
@@ -576,38 +578,37 @@ def calculate_score_of_developer_for_bug_assignment(
                 evidence_list = types_and_evidence.get(et)
                 if not evidence_list:
                     continue
-                # vectorize evidence-level operations
-                dates_ts = np.fromiter((ev.date.timestamp() for ev in evidence_list), dtype=float)
-                prefix_len = int(np.searchsorted(dates_ts, assignment_date.timestamp(), side='left'))
-                if prefix_len == 0:
-                    continue
-                tf_arr = np.fromiter((ev.tf for ev in evidence_list[:prefix_len]), dtype=float)
+                for e in evidence_list:
+                    if e.date < assignment_date:
+                        evidence_date = e.date
+                        recency2 = 1.0
+                        if et < NUMBER_OF_ASSIGNEE_TYPES:
+                            if e.b_a_seq_num >= seq_num:
+                                errors1 += 1
+                            if option8_recency == BTOption8Recency.RECENCY2:
+                                recency2 = 1.0 / (seq_num - e.b_a_seq_num)
+                        else:
+                            if e.non_ba_virtual_seq_num[assignment_type_to_triage] > seq_num:
+                                errors2 += 1
+                            if e.non_ba_virtual_seq_num[assignment_type_to_triage] == seq_num:
+                                errors3_possibly += 1
+                                if seq_num == 1:
+                                    errors4_both_are_one += 1
+                            if option8_recency == BTOption8Recency.RECENCY2:
+                                recency2 = 1.0 / (seq_num - e.non_ba_virtual_seq_num[assignment_type_to_triage])
 
-                if option8_recency == BTOption8Recency.NO_RECENCY:
-                    sub_score += float(tf_arr.sum())
-                elif option8_recency == BTOption8Recency.RECENCY1:
-                    begin_ts = beginning_date_of_project.timestamp()
-                    assignment_ts = assignment_date.timestamp()
-                    recency1_arr = (dates_ts[:prefix_len] - begin_ts) / (assignment_ts - begin_ts)
-                    sub_score += float((tf_arr * recency1_arr).sum())
-                elif option8_recency == BTOption8Recency.RECENCY2:
-                    if et < NUMBER_OF_ASSIGNEE_TYPES:
-                        seq_arr = np.fromiter((ev.b_a_seq_num for ev in evidence_list[:prefix_len]), dtype=float)
-                        bad_mask = seq_arr >= seq_num
-                        errors1 += int(bad_mask.sum())
-                        diff = (seq_num - seq_arr)
-                        recency2_arr = 1.0 / diff
-                        sub_score += float((tf_arr * recency2_arr).sum())
+                        if option8_recency == BTOption8Recency.NO_RECENCY:
+                            sub_score += e.tf
+                        elif option8_recency == BTOption8Recency.RECENCY1:
+                            recency1 = (
+                                (evidence_date - beginning_date_of_project).total_seconds()
+                                / (assignment_date - beginning_date_of_project).total_seconds()
+                            )
+                            sub_score += e.tf * recency1
+                        elif option8_recency == BTOption8Recency.RECENCY2:
+                            sub_score += e.tf * recency2
                     else:
-                        non_ba_col = np.fromiter((ev.non_ba_virtual_seq_num[assignment_type_to_triage] for ev in evidence_list[:prefix_len]), dtype=float)
-                        errors2 += int((non_ba_col > seq_num).sum())
-                        eq_mask = non_ba_col == seq_num
-                        errors3_possibly += int(eq_mask.sum())
-                        if seq_num == 1:
-                            errors4_both_are_one += int(eq_mask.sum())
-                        diff = (seq_num - non_ba_col)
-                        recency2_arr = 1.0 / diff
-                        sub_score += float((tf_arr * recency2_arr).sum())
+                        break
             if option2_w == BTOption2W.NO_TERM_WEIGHTING:
                 if option4_idf == BTOption4IDF.ONE:
                     score += sub_score
