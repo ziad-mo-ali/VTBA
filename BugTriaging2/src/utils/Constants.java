@@ -28,7 +28,7 @@ import utils.FileManipulationResult;
 
 
 public class Constants {
-	public static final String DATASET_OVERAL_DIRECTORY = "C:/2-Study/BugTriaging2/Data Set/Main";
+	public static final String DATASET_OVERAL_DIRECTORY = "/content/VTBA/Data Set/Main";
 	public static final String DATASET_DIRECTORY_GH_JSON = DATASET_OVERAL_DIRECTORY + "/GH/AtLeastUpTo20161001/1-JSON";
 	public static final String DATASET_DIRECTORY_GH_2_TSV = DATASET_OVERAL_DIRECTORY + "/GH/AtLeastUpTo20161001/2-TSV/3- 16 projects + 2 project families (13 + 3 + 6 more projects)";
 	public static final String DATASET_DIRECTORY_GH_3_TSV = DATASET_OVERAL_DIRECTORY + "/GH/AtLeastUpTo20161001/3-TSV-Cleaned";
