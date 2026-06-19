@@ -23,8 +23,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 //--------------------------------------------------------------------------------------------------------------------------------------------
 public class JSONToTSV {
 	//--------------------------------------------------------------------------------------------------------------------------------------------
-	private static final String DATASET_DIRECTORY_GH_JSON = "C:\\2-Study\\BugTriaging2\\Data Set\\GH\\AtLeastUpTo20161001\\1-JSON\\3- 13 projects + 2 project families (13 + 6 more projects)";
-	private static final String DATASET_DIRECTORY_GH_TSV = "C:\\2-Study\\BugTriaging2\\Data Set\\GH\\AtLeastUpTo20161001\\2-TSV\\3- 13 projects + 2 project families (13 + 6 more projects)";
+	private static final String DATASET_DIRECTORY_GH_JSON = "/content/VTBA/Data Set/GH/AtLeastUpTo20161001/1-JSON/3- 13 projects + 2 project families (13 + 6 more projects)";
+	private static final String DATASET_DIRECTORY_GH_TSV = "/content/VTBA/Data Set/GH/AtLeastUpTo20161001/2-TSV/3- 13 projects + 2 project families (13 + 6 more projects)";
 	//--------------------------------------------------------------------------------------------------------------------------------------------
 	static String getValueFromJSONAndRemoveInvalidCharactersAndPutSeparatorBeforeIt(JSONObject jsO, String fieldName, String fileName, AtomicBoolean itIsTheFirstFieldInTheLine){
 		String fieldValue;

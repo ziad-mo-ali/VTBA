@@ -20,8 +20,8 @@ import utils.Constants.LogicalOperation;
 
 public class CSVManipulations {
 	//----------------------------------------------------------------------------------------------------------------------------------------
-	private static final String DATASET_DIRECTORY_GH_CSV = "C:\\2-Study\\BugTriaging2\\Data Set\\GH\\AtLeastUpTo20161001\\1-CSV";
-	private static final String DATASET_DIRECTORY_GH_TSV = "C:\\2-Study\\BugTriaging2\\Data Set\\GH\\AtLeastUpTo20161001\\2-TSV\\3- 13 projects + 2 project families (13 + 6 more projects)";
+	private static final String DATASET_DIRECTORY_GH_CSV = "/content/VTBA/Data Set/GH/AtLeastUpTo20161001/1-CSV";
+	private static final String DATASET_DIRECTORY_GH_TSV = "/content/VTBA/Data Set/GH/AtLeastUpTo20161001/2-TSV/3- 13 projects + 2 project families (13 + 6 more projects)";
 	//----------------------------------------------------------------------------------------------------------------------------------------
 	//----------------------------------------------------------------------------------------------------------------------------------------
 	public static String jsonArrayToShortForm(String s, Boolean convertedCorrectly){
@@ -357,7 +357,7 @@ public class CSVManipulations {
 			MyUtils.println("-----------------------------------", indentationLevel+1);
 			MyUtils.println(writeMessageStep + "-1- Reading 401 project file into a HashSet:", indentationLevel+1);
 			MyUtils.println("Started ...", indentationLevel+2);
-			BufferedReader br1 = new BufferedReader(new FileReader(tsvInputPath + "\\" + tsvInputFileName + ".tsv")); 
+			BufferedReader br1 = new BufferedReader(new FileReader(tsvInputPath + "/" + tsvInputFileName + ".tsv")); 
 			String s = br1.readLine(); //Skip the title line.
 			HashSet<String> projectNames = new HashSet<String>();
 			String fields[];
@@ -386,7 +386,7 @@ public class CSVManipulations {
 			MyUtils.println(writeMessageStep + "-2- Reading GHTorrent project file into a hashMap:", indentationLevel+1);
 			MyUtils.println("Started ...", indentationLevel+2);
 			HashMap<String, String> projectNameAndGHTorrentId = new HashMap<String, String>();
-			BufferedReader br2 = new BufferedReader(new FileReader(csvInputPath + "\\" + csvInputFileName + ".csv")); 
+			BufferedReader br2 = new BufferedReader(new FileReader(csvInputPath + "/" + csvInputFileName + ".csv")); 
 			while((s = br2.readLine()) != null) {
 				if (s.matches("\\d+,\"https://api\\.github.com/.+")){ //: This regex is to check that the line is okay and we are not dealing with a broken line from previous line.  
 					fields = s.split(","); 
@@ -410,7 +410,7 @@ public class CSVManipulations {
 			}
 			br2.close();
 			if (linesWithError > 0){
-				MyUtils.println(linesWithError+" lines in \"" + csvInputPath + "\\" + csvInputFileName + ".csv\" had error (e.g., broken lines from previous projects) and skipped.", indentationLevel+2);
+				MyUtils.println(linesWithError+" lines in \"" + csvInputPath + "/" + csvInputFileName + ".csv\" had error (e.g., broken lines from previous projects) and skipped.", indentationLevel+2);
 				fMR.errors++;
 			}
 			MyUtils.println("Finished.", indentationLevel+2);
@@ -419,8 +419,8 @@ public class CSVManipulations {
 			MyUtils.println("-----------------------------------", indentationLevel+1);
 			MyUtils.println(writeMessageStep + "-3- Reading 401 project file and obtain the GHTorrent ids from the previously read hashMap and adding it to 401 project file:", indentationLevel+1);
 			MyUtils.println("Started ...", indentationLevel+2);
-			BufferedReader br3 = new BufferedReader(new FileReader(tsvInputPath + "\\" + tsvInputFileName + ".tsv")); 
-			FileWriter writer = new FileWriter(tsvOutputPath + "\\" + tsvOutputFileName + ".tsv");
+			BufferedReader br3 = new BufferedReader(new FileReader(tsvInputPath + "/" + tsvInputFileName + ".tsv")); 
+			FileWriter writer = new FileWriter(tsvOutputPath + "/" + tsvOutputFileName + ".tsv");
 			s = br3.readLine();
 			fields = s.split(Constants.TAB);
 			String line = fields[0] + Constants.TAB + "GHTorrentProjectId"; //id	GHTorrentProjectId.
@@ -453,7 +453,7 @@ public class CSVManipulations {
 			writer.close();
 			fMR.doneSuccessfully++;
 			if (linesWithError > 0){
-				MyUtils.println(linesWithError+" projects in \"" + tsvInputPath + "\\" + tsvInputFileName + ".tsv\" were not found in the csv projects list.", indentationLevel+2);
+				MyUtils.println(linesWithError+" projects in \"" + tsvInputPath + "/" + tsvInputFileName + ".tsv\" were not found in the csv projects list.", indentationLevel+2);
 				fMR.errors++;
 			}
 			MyUtils.println("Number of records written: " + Constants.integerFormatter.format(i), indentationLevel+2);
@@ -494,7 +494,7 @@ public class CSVManipulations {
 //			MyUtils.println("Started ...", indentationLevel+1);
 //			
 //			//First, read the GHTorrentProjectId of our 35 projects: 
-//			HashSet<String> projectIds = TSVManipulations.readUniqueFieldFromTSV(projectsTSVInputPath+"\\"+projectsTSVInputFileName, 1, 6, LogicalOperation.NO_CONDITION, 
+//			HashSet<String> projectIds = TSVManipulations.readUniqueFieldFromTSV(projectsTSVInputPath+"/"+projectsTSVInputFileName, 1, 6, LogicalOperation.NO_CONDITION, 
 //					0, ConditionType.NOTHING, "", FieldType.NOT_IMPORTANT, 
 //					0, ConditionType.NOTHING, "", FieldType.NOT_IMPORTANT, 
 //					wrapOutputInLines, indentationLevel, showProgressInterval, testOrReal, writeMessageStep+"-1");
@@ -503,7 +503,7 @@ public class CSVManipulations {
 //			MyUtils.println("-----------------------------------", indentationLevel+1);
 //			MyUtils.println(writeMessageStep + "-1- Reading 401 project file into a HashSet:", indentationLevel+1);
 //			MyUtils.println("Started ...", indentationLevel+2);
-//			BufferedReader br1 = new BufferedReader(new FileReader(tsvInputPath + "\\" + tsvInputFileName + ".tsv")); 
+//			BufferedReader br1 = new BufferedReader(new FileReader(tsvInputPath + "/" + tsvInputFileName + ".tsv")); 
 //			String s = br1.readLine(); //Skip the title line.
 //			HashSet<String> projectNames = new HashSet<String>();
 //			String fields[];
@@ -530,7 +530,7 @@ public class CSVManipulations {
 //			MyUtils.println(writeMessageStep + "-2- Reading GHTorrent project file into a hashMap:", indentationLevel+1);
 //			MyUtils.println("Started ...", indentationLevel+2);
 //			HashMap<String, String> projectNameAndGHTorrentId = new HashMap<String, String>();
-//			BufferedReader br2 = new BufferedReader(new FileReader(csvInputPath + "\\" + csvInputFileName + ".csv")); 
+//			BufferedReader br2 = new BufferedReader(new FileReader(csvInputPath + "/" + csvInputFileName + ".csv")); 
 //			while((s = br2.readLine()) != null) {
 //				if (s.matches("\\d+,\"https://api\\.github.com/.+")){ //: This regex is to check that the line is okay and we are not dealing with a broken line from previous line.  
 //					fields = s.split(","); 
@@ -554,15 +554,15 @@ public class CSVManipulations {
 //			}
 //			br2.close();
 //			if (linesWithError > 0)
-//				MyUtils.println(linesWithError+" lines in \"" + csvInputPath + "\\" + csvInputFileName + ".csv\" had error and skipped.", indentationLevel+2);
+//				MyUtils.println(linesWithError+" lines in \"" + csvInputPath + "/" + csvInputFileName + ".csv\" had error and skipped.", indentationLevel+2);
 //			MyUtils.println("Finished.", indentationLevel+2);
 //			MyUtils.println("-----------------------------------", indentationLevel+1);
 //
 //			MyUtils.println("-----------------------------------", indentationLevel+1);
 //			MyUtils.println(writeMessageStep + "-3- Reading 401 project file and obtain the GHTorrent ids from the previously read hashMap and adding it to 401 project file:", indentationLevel+1);
 //			MyUtils.println("Started ...", indentationLevel+2);
-//			BufferedReader br3 = new BufferedReader(new FileReader(tsvInputPath + "\\" + tsvInputFileName + ".tsv")); 
-//			FileWriter writer = new FileWriter(tsvOutputPath + "\\" + tsvOutputFileName + ".tsv");
+//			BufferedReader br3 = new BufferedReader(new FileReader(tsvInputPath + "/" + tsvInputFileName + ".tsv")); 
+//			FileWriter writer = new FileWriter(tsvOutputPath + "/" + tsvOutputFileName + ".tsv");
 //			s = br3.readLine();
 //			fields = s.split(Constants.TAB);
 //			String line = fields[0] + Constants.TAB + "GHTorrentProjectId"; //id	GHTorrentProjectId.
@@ -593,7 +593,7 @@ public class CSVManipulations {
 //			writer.close();
 //			fMR.doneSuccessfully++;
 //			if (linesWithError > 0)
-//				MyUtils.println(linesWithError+" projects in \"" + tsvInputPath + "\\" + tsvInputFileName + ".tsv\" were not found in the csv projects list.", indentationLevel+2);
+//				MyUtils.println(linesWithError+" projects in \"" + tsvInputPath + "/" + tsvInputFileName + ".tsv\" were not found in the csv projects list.", indentationLevel+2);
 //			MyUtils.println("Number of records written: " + Constants.integerFormatter.format(i), indentationLevel+2);
 //			if (linesWithError > 0)
 //				MyUtils.println("Finished with " + Constants.integerFormatter.format(linesWithError) + " errors.", indentationLevel+2);

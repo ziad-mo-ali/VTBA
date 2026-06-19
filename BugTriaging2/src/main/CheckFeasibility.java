@@ -22,8 +22,8 @@ import utils.Constants.LogicalOperation;
 public class CheckFeasibility {
 	//------------------------------------------------------------------------------------------------------------------------
 	//------------------------------------------------------------------------------------------------------------------------
-	private static final String DATASET_DIRECTORY_SO_TSV = "C:\\2-Study\\BugTriaging2\\Data Set\\SO\\20161110\\3-TSV-Cleaned";
-	private static final String DATASET_DIRECTORY_GH_TSV = "C:\\2-Study\\BugTriaging2\\Data Set\\GH\\AtLeastUpTo20161001\\2-TSV\\3- 13 projects + 2 project families (13 + 6 more projects)";
+	private static final String DATASET_DIRECTORY_SO_TSV = "/content/VTBA/Data Set/SO/20161110/3-TSV-Cleaned";
+	private static final String DATASET_DIRECTORY_GH_TSV = "/content/VTBA/Data Set/GH/AtLeastUpTo20161001/2-TSV/3- 13 projects + 2 project families (13 + 6 more projects)";
 	public static final String COMBINED_KEY_SEPARATOR = Constants.COMBINED_KEY_SEPARATOR;
 	//------------------------------------------------------------------------------------------------------------------------
 	//------------------------------------------------------------------------------------------------------------------------
@@ -592,7 +592,7 @@ public class CheckFeasibility {
 //				0, ConditionType.NOTHING, "", FieldType.NOT_IMPORTANT, 
 //				0, ConditionType.NOTHING, "", FieldType.NOT_IMPORTANT, true, 10000, 0, Constants.THIS_IS_REAL, "");
 		
-		TreeMap<String, String[]> bugs = TSVManipulations.readUniqueKeyAndItsValueFromTSV("C:\\2-Study\\BugTriaging2\\Data Set\\GH\\AtLeastUpTo20161001\\4-TSV-ATempFolder\\Temp2", "7-projects.tsv", null, 
+		TreeMap<String, String[]> bugs = TSVManipulations.readUniqueKeyAndItsValueFromTSV("/content/VTBA/Data Set/GH/AtLeastUpTo20161001/4-TSV-ATempFolder/Temp2", "7-projects.tsv", null, 
 				0, 13, "2", LogicalOperation.NO_CONDITION, 
 				0, ConditionType.NOTHING, "", FieldType.NOT_IMPORTANT, 
 				0, ConditionType.NOTHING, "", FieldType.NOT_IMPORTANT, true, 10000, 0, Constants.THIS_IS_REAL, "");
