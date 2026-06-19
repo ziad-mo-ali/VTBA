@@ -1386,7 +1386,14 @@ public class AlgPrep {
 
 			// Sort each developer's commits by date ascending
 			MyUtils.println("Finished reading commit diffs. Now sorting " + developerCommitIndex.size() + " developers' commits...", indentationLevel);
-			developerCommitIndex.forEach((dev, list) -> list.sort(Comparator.comparing(cr -> cr.date)));
+			int devCount = 0;
+			for (String dev : developerCommitIndex.keySet()) {
+				developerCommitIndex.get(dev).sort(Comparator.comparing(cr -> cr.date));
+				devCount++;
+				if (devCount % 100 == 0) {
+					MyUtils.println("  Sorted " + devCount + " / " + developerCommitIndex.size() + " developers", indentationLevel + 1);
+				}
+			}
 
 			MyUtils.println("Indexed commit diff records for projectId: " + projectId, indentationLevel);
 		} catch (IOException e) {
