@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.nio.ByteOrder;
-import java.nio.FloatBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
@@ -17,9 +16,10 @@ import java.util.Set;
 public final class W2VSimilarity implements AutoCloseable {
 
     private static final int DIM = 300;
+    private static final int CHUNK_SIZE = 1 << 30; // 1 GiB chunks, must be a multiple of 4
 
     private final Map<String, Integer> vocab;
-    private final FloatBuffer vectors;
+    private final MappedByteBuffer[] buffers;
     private final FileChannel channel; // kept open for the life of the mmap
 
     public W2VSimilarity(Path vocabPath, Path vectorsPath) throws IOException {
@@ -29,17 +29,30 @@ public final class W2VSimilarity implements AutoCloseable {
         this.vocab = Collections.unmodifiableMap(loaded);
 
         this.channel = FileChannel.open(vectorsPath, StandardOpenOption.READ);
-        MappedByteBuffer buf = channel.map(FileChannel.MapMode.READ_ONLY, 0, channel.size());
-        buf.order(ByteOrder.LITTLE_ENDIAN);
-        this.vectors = buf.asFloatBuffer();
+        long fileSize = channel.size();
+        if (fileSize % Integer.BYTES != 0) {
+            throw new IllegalStateException("vectors.bin size is not a multiple of 4 bytes");
+        }
 
         long expectedFloats = (long) vocab.size() * DIM;
-        if (vectors.capacity() != expectedFloats) {
+        long actualFloats = fileSize / Integer.BYTES;
+        if (actualFloats != expectedFloats) {
             throw new IllegalStateException(
                 "vectors.bin size mismatch: expected " + expectedFloats +
                 " floats for vocab size " + vocab.size() +
-                " (dim=" + DIM + "), got " + vectors.capacity() +
+                " (dim=" + DIM + "), got " + actualFloats +
                 ". Did the export script and DIM constant get out of sync?");
+        }
+
+        int numChunks = (int) ((fileSize + CHUNK_SIZE - 1) / CHUNK_SIZE);
+        this.buffers = new MappedByteBuffer[numChunks];
+        long position = 0;
+        for (int i = 0; i < numChunks; i++) {
+            int size = (int) Math.min(CHUNK_SIZE, fileSize - position);
+            MappedByteBuffer buf = channel.map(FileChannel.MapMode.READ_ONLY, position, size);
+            buf.order(ByteOrder.LITTLE_ENDIAN);
+            this.buffers[i] = buf;
+            position += size;
         }
     }
 
@@ -115,15 +128,22 @@ public final class W2VSimilarity implements AutoCloseable {
     }
 
     private float dot(int row1, int row2) {
-        return dotByOffset(row1 * DIM, row2 * DIM);
+        return dotByOffset((long) row1 * DIM, (long) row2 * DIM);
     }
 
-    private float dotByOffset(int off1, int off2) {
+    private float dotByOffset(long off1, long off2) {
         float sum = 0f;
         for (int k = 0; k < DIM; k++) {
-            sum += vectors.get(off1 + k) * vectors.get(off2 + k);
+            sum += getFloat(off1 + k) * getFloat(off2 + k);
         }
         return sum;
+    }
+
+    private float getFloat(long floatIndex) {
+        long byteIndex = floatIndex * Integer.BYTES;
+        int chunk = (int) (byteIndex / CHUNK_SIZE);
+        int offset = (int) (byteIndex - (long) chunk * CHUNK_SIZE);
+        return buffers[chunk].getFloat(offset);
     }
 
     @Override
