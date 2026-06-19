@@ -55,13 +55,13 @@ public class JSONToTSV {
 			if (wrapOutputInLines)
 				MyUtils.println("-----------------------------------", indentationLevel);
 			System.out.println(MyUtils.indent(indentationLevel) + writeMessageStep + " Reading input (json) file and writing into output (TSV) file:");
-			System.out.println(MyUtils.indent(indentationLevel) + outputPath + "\\" + fileName + ".tsv");
+			System.out.println(MyUtils.indent(indentationLevel) + outputPath + "/" + fileName + ".tsv");
 			System.out.println(MyUtils.indent(indentationLevel+1) + "Started ...");
 
-			BufferedReader br = new BufferedReader(new FileReader(inputPath + "\\" + fileName + ".json")); 
+			BufferedReader br = new BufferedReader(new FileReader(inputPath + "/" + fileName + ".json")); 
 			JSONParser jsonParser = new JSONParser();
 			JSONObject jsonObject;
-			FileWriter writer = new FileWriter(outputPath + "\\" + fileName + ".tsv");
+			FileWriter writer = new FileWriter(outputPath + "/" + fileName + ".tsv");
 			String title = "";
 			for (String field: Constants.USEFUL_FIELDS_IN_JSON_FILES.get(fileName + ":labels")){
 				if (!title.equals(""))	
@@ -267,9 +267,9 @@ public class JSONToTSV {
 			MyUtils.println("-----------------------------------", indentationLevel+1);
 			MyUtils.println(writeMessageStep + "-2-Readig \"" + bugsFileName + ".tsv\" and merging with \"" + bugsFileName + ".tsv\" (which is already in memory):" , indentationLevel+1);
 			MyUtils.println("Started ...", indentationLevel+1);
-			BufferedReader br = new BufferedReader(new FileReader(inputPath + "\\" + bugsFileName + ".tsv")); 
-			FileWriter issuesWriter = new FileWriter(outputPath + "\\" + issuesOutputFileName + ".tsv");
-			FileWriter pRsWriter = new FileWriter(outputPath + "\\" + prsOutputFileName + ".tsv");
+			BufferedReader br = new BufferedReader(new FileReader(inputPath + "/" + bugsFileName + ".tsv")); 
+			FileWriter issuesWriter = new FileWriter(outputPath + "/" + issuesOutputFileName + ".tsv");
+			FileWriter pRsWriter = new FileWriter(outputPath + "/" + prsOutputFileName + ".tsv");
 			int neglectedRecords = 0;
 			int i = 0;
 			int bugRecordsWritten = 0;

@@ -187,7 +187,7 @@ public class CheckFeasibility {
 			MyUtils.println("-----------------------------------", 1);
 			MyUtils.println("5- Reading commits into a HashMap:", 1);
 			MyUtils.println("Started ...", 2);
-			BufferedReader br5 = new BufferedReader(new FileReader(DATASET_DIRECTORY_GH_TSV + "\\commits.tsv")); 
+			BufferedReader br5 = new BufferedReader(new FileReader(DATASET_DIRECTORY_GH_TSV + "/commits.tsv")); 
 			s = br5.readLine(); //Skip the title line.
 			HashMap<String, String> commits = new HashMap<String, String>();
 			i = 0;
@@ -481,7 +481,7 @@ public class CheckFeasibility {
 		try{
 			//1: Read all commits:
 			TreeMap<String, String[]> commits = TSVManipulations.readUniqueKeyAndItsValueFromTSV(
-					DATASET_DIRECTORY_GH_TSV, "\\commits.tsv", null, 
+					DATASET_DIRECTORY_GH_TSV, "/commits.tsv", null, 
 					4, 6, "1$5", LogicalOperation.NO_CONDITION, 0, ConditionType.NOTHING, "", FieldType.NOT_IMPORTANT, 0, ConditionType.NOTHING, "", FieldType.NOT_IMPORTANT, 
 					true, 200000, 1, Constants.THIS_IS_REAL, "1");
 
