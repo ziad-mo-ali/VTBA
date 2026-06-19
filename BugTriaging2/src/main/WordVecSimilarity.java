@@ -40,6 +40,14 @@ public class WordVecSimilarity {
         return result;
     }
 
+    public int indexOf(String token) {
+        return index.indexOf(token);
+    }
+
+    public void readRow(int rowIndex, float[] dest) {
+        index.readRow(rowIndex, dest);
+    }
+
     public Map<String, Double> getSimilarities(List<String> tokens, List<String> tags) {
         Map<String, Double> result = new HashMap<>();
         if (tokens == null || tags == null || tokens.isEmpty() || tags.isEmpty()) {

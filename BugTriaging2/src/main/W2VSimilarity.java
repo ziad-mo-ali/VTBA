@@ -3,6 +3,7 @@ package main;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
@@ -82,7 +83,7 @@ public final class W2VSimilarity implements AutoCloseable {
         long byteIndex = (long) rowIndex * DIM * Integer.BYTES;
         int chunk = (int) (byteIndex / CHUNK_SIZE);
         int offset = (int) (byteIndex - (long) chunk * CHUNK_SIZE);
-        MappedByteBuffer buf = buffers[chunk].duplicate();
+        ByteBuffer buf = buffers[chunk].duplicate();
         buf.order(ByteOrder.LITTLE_ENDIAN);
         buf.position(offset);
         buf.asFloatBuffer().get(dest);
