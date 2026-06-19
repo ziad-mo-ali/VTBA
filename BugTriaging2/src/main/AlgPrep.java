@@ -1353,7 +1353,12 @@ public class AlgPrep {
 				List<String> uniqueTokens = new ArrayList<>(tokenFreqs.keySet());
 				if (uniqueTokens.isEmpty()) continue;
 
+				long simStart = System.currentTimeMillis();
 				Map<String, Double> simMap = WordVecSimilarity.getInstance().getSimilarities(uniqueTokens, soTags);
+				long simElapsed = System.currentTimeMillis() - simStart;
+				if (simElapsed > 1000) {
+					MyUtils.println("  WARNING: getSimilarities took " + simElapsed + "ms for " + uniqueTokens.size() + " tokens", indentationLevel);
+				}
 
 				// Compute vocabCount: distinct unique tokens that appear in any simMap key
 				Set<String> vocabTokens = new HashSet<>();
