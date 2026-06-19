@@ -1388,7 +1388,7 @@ public class AlgPrep {
 			developerCommitIndex.forEach((dev, list) -> list.sort(Comparator.comparing(cr -> cr.date)));
 
 			MyUtils.println("Indexed commit diff records for projectId: " + projectId, indentationLevel);
-
+		} catch (IOException e) {
 			fMR.errors++;
 			System.out.println("ERROR reading commit diff evidence!");
 			e.printStackTrace();
