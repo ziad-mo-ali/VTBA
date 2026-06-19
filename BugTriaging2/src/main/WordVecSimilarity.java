@@ -46,6 +46,13 @@ public class WordVecSimilarity {
             return result;
         }
 
+        int tagCount = tags.size();
+        int[] tagIndices = new int[tagCount];
+        for (int i = 0; i < tagCount; i++) {
+            String tag = tags.get(i);
+            tagIndices[i] = (tag == null) ? -1 : index.indexOf(tag);
+        }
+
         for (String token : tokens) {
             if (token == null) {
                 continue;
@@ -54,14 +61,12 @@ public class WordVecSimilarity {
             if (tokenIndex < 0) {
                 continue;
             }
-            for (String tag : tags) {
-                if (tag == null) {
-                    continue;
-                }
-                int tagIndex = index.indexOf(tag);
+            for (int i = 0; i < tagCount; i++) {
+                int tagIndex = tagIndices[i];
                 if (tagIndex < 0) {
                     continue;
                 }
+                String tag = tags.get(i);
                 float sim = index.similarity(tokenIndex, tagIndex);
                 // Preserve prior behavior: only positive similarities are kept.
                 // If zero/negative similarities should be included, remove this filter.

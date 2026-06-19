@@ -1298,6 +1298,10 @@ public class AlgPrep {
 			int lineCount = 0;
 			String s;
 			br.readLine(); // header
+			long initStart = System.currentTimeMillis();
+			MyUtils.println("Initializing W2V similarity index...", indentationLevel);
+			WordVecSimilarity.getInstance();
+			MyUtils.println(String.format("W2V similarity index initialized in %.1f sec", (System.currentTimeMillis() - initStart) / 1000.0), indentationLevel);
 			long startTime = System.currentTimeMillis();
 			char[] spinner = new char[]{'|', '/', '-', '\\'};
 			
