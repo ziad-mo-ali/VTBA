@@ -1298,14 +1298,18 @@ public class AlgPrep {
 			int lineCount = 0;
 			String s;
 			br.readLine(); // header
-			while ((s = br.readLine()) != null) {
-				lineCount++;
-				if (lineCount % 10000 == 0)
-					MyUtils.println("Processed " + lineCount + " commit diff lines...", indentationLevel);
-
-				String[] fields = s.split("\t");
-				if (fields.length != 5) {
-					fMR.errors++;
+		long startTime = System.currentTimeMillis();
+		char[] spinner = new char[]{'|', '/', '-', '\\'};
+		
+		while ((s = br.readLine()) != null) {
+			lineCount++;
+			if (lineCount % 10000 == 0) {
+				long elapsed = (System.currentTimeMillis() - startTime) / 1000;
+				double rate = (elapsed > 0) ? lineCount / (double) elapsed : 0;
+				int spinIdx = ((lineCount / 10000) - 1) % spinner.length;
+				MyUtils.println(String.format("Processed %,d commit diff lines... %c [%.1f lines/sec, %d sec elapsed]", 
+					lineCount, spinner[spinIdx], rate, elapsed), indentationLevel);
+			}
 					continue;
 				}
 
