@@ -1374,29 +1374,28 @@ public class AlgPrep {
 				List<String> uniqueTokens = new ArrayList<>(tokenFreqs.keySet());
 				if (uniqueTokens.isEmpty()) continue;
 
-			float[] tokenVector = new float[W2VSimilarity.DIM];
-			long simStart = 0;
-			double[] tagScoreSums = new double[activeTagCount];
-			for (String token : uniqueTokens) {
-				int tokenIndex = w2v.indexOf(token);
-				if (tokenIndex < 0) continue;
-				if (simStart == 0) {
-					simStart = System.currentTimeMillis();
-				}
-				w2v.readRow(tokenIndex, tokenVector);
-				int freq = tokenFreqs.getOrDefault(token, 1);
-				for (int i = 0; i < activeTagCount; i++) {
-					float[] tagVector = activeTagVectors[i];
-					float sum = 0f;
-					for (int k = 0; k < W2VSimilarity.DIM; k++) {
-						sum += tokenVector[k] * tagVector[k];
+				Arrays.fill(tagScoreSums, 0.0);
+				long simStart = 0;
+				for (String token : uniqueTokens) {
+					int tokenIndex = w2v.indexOf(token);
+					if (tokenIndex < 0) continue;
+					if (simStart == 0) {
+						simStart = System.currentTimeMillis();
 					}
-					if (sum > 0.0f) {
-						tagScoreSums[i] += sum * freq;
+					w2v.readRow(tokenIndex, tokenVector);
+					int freq = tokenFreqs.getOrDefault(token, 1);
+					for (int i = 0; i < activeTagCount; i++) {
+						float[] tagVector = activeTagVectors[i];
+						float sum = 0f;
+						for (int k = 0; k < W2VSimilarity.DIM; k++) {
+							sum += tokenVector[k] * tagVector[k];
+						}
+						if (sum > 0.0f) {
+							tagScoreSums[i] += sum * freq;
+						}
 					}
 				}
-			}
-			Map<String, Double> tagScores = new HashMap<>();
+				Map<String, Double> tagScores = new HashMap<>();
 			if (simStart != 0) {
 				long simElapsed = System.currentTimeMillis() - simStart;
 				diffsProcessed++;

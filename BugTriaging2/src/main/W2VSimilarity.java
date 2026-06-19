@@ -19,8 +19,11 @@ public final class W2VSimilarity implements AutoCloseable {
     public static final int DIM = 300;
     private static final int CHUNK_SIZE = 1 << 30; // 1 GiB chunks, must be a multiple of 4
 
+    private static final int CHUNK_FLOATS = CHUNK_SIZE / Integer.BYTES;
+
     private final Map<String, Integer> vocab;
     private final MappedByteBuffer[] buffers;
+    private final FloatBuffer[] floatBuffers;
     private final FileChannel channel; // kept open for the life of the mmap
 
     public W2VSimilarity(Path vocabPath, Path vectorsPath) throws IOException {
@@ -47,12 +50,14 @@ public final class W2VSimilarity implements AutoCloseable {
 
         int numChunks = (int) ((fileSize + CHUNK_SIZE - 1) / CHUNK_SIZE);
         this.buffers = new MappedByteBuffer[numChunks];
+        this.floatBuffers = new FloatBuffer[numChunks];
         long position = 0;
         for (int i = 0; i < numChunks; i++) {
             int size = (int) Math.min(CHUNK_SIZE, fileSize - position);
             MappedByteBuffer buf = channel.map(FileChannel.MapMode.READ_ONLY, position, size);
             buf.order(ByteOrder.LITTLE_ENDIAN);
             this.buffers[i] = buf;
+            this.floatBuffers[i] = buf.asFloatBuffer();
             position += size;
         }
     }
@@ -83,10 +88,10 @@ public final class W2VSimilarity implements AutoCloseable {
         long byteIndex = (long) rowIndex * DIM * Integer.BYTES;
         int chunk = (int) (byteIndex / CHUNK_SIZE);
         int offset = (int) (byteIndex - (long) chunk * CHUNK_SIZE);
-        ByteBuffer buf = buffers[chunk].duplicate();
-        buf.order(ByteOrder.LITTLE_ENDIAN);
-        buf.position(offset);
-        buf.asFloatBuffer().get(dest);
+        int floatOffset = offset / Integer.BYTES;
+        FloatBuffer buf = floatBuffers[chunk].duplicate();
+        buf.position(floatOffset);
+        buf.get(dest);
     }
 
     /**
@@ -146,18 +151,19 @@ public final class W2VSimilarity implements AutoCloseable {
     }
 
     private float dotByOffset(long off1, long off2) {
+        int chunk1 = (int) (off1 / CHUNK_FLOATS);
+        int chunk2 = (int) (off2 / CHUNK_FLOATS);
+        int pos1 = (int) (off1 - (long) chunk1 * CHUNK_FLOATS);
+        int pos2 = (int) (off2 - (long) chunk2 * CHUNK_FLOATS);
+        FloatBuffer buf1 = floatBuffers[chunk1].duplicate();
+        FloatBuffer buf2 = floatBuffers[chunk2].duplicate();
+        buf1.position(pos1);
+        buf2.position(pos2);
         float sum = 0f;
         for (int k = 0; k < DIM; k++) {
-            sum += getFloat(off1 + k) * getFloat(off2 + k);
+            sum += buf1.get() * buf2.get();
         }
         return sum;
-    }
-
-    private float getFloat(long floatIndex) {
-        long byteIndex = floatIndex * Integer.BYTES;
-        int chunk = (int) (byteIndex / CHUNK_SIZE);
-        int offset = (int) (byteIndex - (long) chunk * CHUNK_SIZE);
-        return buffers[chunk].getFloat(offset);
     }
 
     @Override
