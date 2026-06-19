@@ -203,7 +203,7 @@ public class Algorithm {//test 9
 		
 		totalFMR = MyUtils.addFileManipulationResults(totalFMR, localFMR);
 
-		String detailedAssignmentResultsSubfolderName = AlgPrep.createFolderForResults(outputPath+"\\"+Constants.ASSIGNMENT_RESULTS_OVERAL_FOLDER_NAME, experimentTitle, isMainRun, localFMR, indentationLevel);
+		String detailedAssignmentResultsSubfolderName = AlgPrep.createFolderForResults(outputPath+ "/" +Constants.ASSIGNMENT_RESULTS_OVERAL_FOLDER_NAME, experimentTitle, isMainRun, localFMR, indentationLevel);
 		totalFMR = MyUtils.addFileManipulationResults(totalFMR, localFMR);
 		Date d3 = new Date();
 
