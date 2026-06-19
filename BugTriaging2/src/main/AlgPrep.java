@@ -1318,6 +1318,8 @@ public class AlgPrep {
 					activeTagCount++;
 				}
 			}
+			float[] tokenVector = new float[W2VSimilarity.DIM];
+			double[] tagScoreSums = new double[activeTagCount];
 			long startTime = System.currentTimeMillis();
 			char[] spinner = new char[]{'|', '/', '-', '\\'};
 			
