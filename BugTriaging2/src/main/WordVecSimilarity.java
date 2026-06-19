@@ -1,57 +1,72 @@
 package main;
 
-import java.io.File;
-import java.util.ArrayList;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.deeplearning4j.models.embeddings.loader.WordVectorSerializer;
-import org.deeplearning4j.models.word2vec.Word2Vec;
-
 public class WordVecSimilarity {
-    public static final String MODEL_PATH = "/content/models/w2v_model_5chunksaveing/word2vec.bin";
+    public static final String DEFAULT_MODEL_DIR = "/content/models/w2v_model_5chunksaveing";
+    public static final String MODEL_DIR = System.getProperty(
+            "w2v.model.dir",
+            System.getenv().getOrDefault("W2V_MODEL_DIR", DEFAULT_MODEL_DIR));
+    public static final Path VOCAB_PATH = Paths.get(MODEL_DIR, "vocab.json");
+    public static final Path VECTORS_PATH = Paths.get(MODEL_DIR, "vectors.bin");
 
-    private static WordVecSimilarity instance = null;
-    private final Word2Vec model;
+    private static volatile WordVecSimilarity instance = null;
+    private final W2VSimilarity index;
 
     private WordVecSimilarity() {
-        File modelFile = new File(MODEL_PATH);
-        if (!modelFile.exists()) {
-            throw new RuntimeException("Word2Vec model file not found at " + MODEL_PATH);
-        }
-
         try {
-            this.model = WordVectorSerializer.readWord2VecModel(modelFile);
-        } catch (Exception exc) {
-            throw new RuntimeException("Failed to load Word2Vec model from " + MODEL_PATH, exc);
+            this.index = new W2VSimilarity(VOCAB_PATH, VECTORS_PATH);
+        } catch (IOException exc) {
+            throw new RuntimeException("Failed to load W2V vectors from " + MODEL_DIR, exc);
         }
     }
 
-    public static synchronized WordVecSimilarity getInstance() {
-        if (instance == null) {
-            instance = new WordVecSimilarity();
+    public static WordVecSimilarity getInstance() {
+        WordVecSimilarity result = instance;
+        if (result == null) {
+            synchronized (WordVecSimilarity.class) {
+                result = instance;
+                if (result == null) {
+                    result = new WordVecSimilarity();
+                    instance = result;
+                }
+            }
         }
-        return instance;
+        return result;
     }
 
-    public synchronized Map<String, Double> getSimilarities(List<String> tokens, List<String> tags) {
+    public Map<String, Double> getSimilarities(List<String> tokens, List<String> tags) {
         Map<String, Double> result = new HashMap<>();
         if (tokens == null || tags == null || tokens.isEmpty() || tags.isEmpty()) {
             return result;
         }
 
         for (String token : tokens) {
-            if (token == null || !model.hasWord(token)) {
+            if (token == null) {
+                continue;
+            }
+            int tokenIndex = index.indexOf(token);
+            if (tokenIndex < 0) {
                 continue;
             }
             for (String tag : tags) {
-                if (tag == null || !model.hasWord(tag)) {
+                if (tag == null) {
                     continue;
                 }
-                double sim = model.similarity(token, tag);
-                if (sim > 0.0) {
-                    result.put(token + "__" + tag, sim);
+                int tagIndex = index.indexOf(tag);
+                if (tagIndex < 0) {
+                    continue;
+                }
+                float sim = index.similarity(tokenIndex, tagIndex);
+                // Preserve prior behavior: only positive similarities are kept.
+                // If zero/negative similarities should be included, remove this filter.
+                if (sim > 0.0f) {
+                    result.put(token + "__" + tag, (double) sim);
                 }
             }
         }
