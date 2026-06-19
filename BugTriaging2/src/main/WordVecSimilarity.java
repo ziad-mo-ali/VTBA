@@ -10,7 +10,7 @@ import org.deeplearning4j.models.embeddings.loader.WordVectorSerializer;
 import org.deeplearning4j.models.word2vec.Word2Vec;
 
 public class WordVecSimilarity {
-    public static final String MODEL_PATH = "/content/models/w2v_model_5chunksaveing/word2vec.bin";
+    public static final String MODEL_PATH = "/content/models/w2v_model_5chunksaveing/word2vec_fast.bin";
 
     private static WordVecSimilarity instance = null;
     private final Word2Vec model;
