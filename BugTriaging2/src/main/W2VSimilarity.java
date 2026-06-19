@@ -15,7 +15,7 @@ import java.util.Set;
 
 public final class W2VSimilarity implements AutoCloseable {
 
-    private static final int DIM = 300;
+    public static final int DIM = 300;
     private static final int CHUNK_SIZE = 1 << 30; // 1 GiB chunks, must be a multiple of 4
 
     private final Map<String, Integer> vocab;
@@ -73,6 +73,19 @@ public final class W2VSimilarity implements AutoCloseable {
     /** Read-only view of all known tokens (e.g. for sampling/benchmarking). */
     public Set<String> tokens() {
         return vocab.keySet();
+    }
+
+    public void readRow(int rowIndex, float[] dest) {
+        if (dest.length != DIM) {
+            throw new IllegalArgumentException("Destination array must have length " + DIM);
+        }
+        long byteIndex = (long) rowIndex * DIM * Integer.BYTES;
+        int chunk = (int) (byteIndex / CHUNK_SIZE);
+        int offset = (int) (byteIndex - (long) chunk * CHUNK_SIZE);
+        MappedByteBuffer buf = buffers[chunk].duplicate();
+        buf.order(ByteOrder.LITTLE_ENDIAN);
+        buf.position(offset);
+        buf.asFloatBuffer().get(dest);
     }
 
     /**

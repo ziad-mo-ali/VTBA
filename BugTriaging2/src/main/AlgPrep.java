@@ -1301,7 +1301,7 @@ public class AlgPrep {
 			br.readLine(); // header
 			long initStart = System.currentTimeMillis();
 			MyUtils.println("Initializing W2V similarity index...", indentationLevel);
-			WordVecSimilarity.getInstance();
+			WordVecSimilarity w2v = WordVecSimilarity.getInstance();
 			MyUtils.println(String.format("W2V similarity index initialized in %.1f sec", (System.currentTimeMillis() - initStart) / 1000.0), indentationLevel);
 			long startTime = System.currentTimeMillis();
 			char[] spinner = new char[]{'|', '/', '-', '\\'};
@@ -1359,12 +1359,38 @@ public class AlgPrep {
 				List<String> uniqueTokens = new ArrayList<>(tokenFreqs.keySet());
 				if (uniqueTokens.isEmpty()) continue;
 
+				float[][] tagVectors = new float[soTags.size()][];
+				for (int i = 0; i < soTags.size(); i++) {
+					String tag = soTags.get(i);
+					int tagIndex = w2v.indexOf(tag);
+					if (tagIndex >= 0) {
+						tagVectors[i] = new float[W2VSimilarity.DIM];
+						w2v.readRow(tagIndex, tagVectors[i]);
+					}
+				}
+
 				long simStart = System.currentTimeMillis();
-				Map<String, Double> simMap = WordVecSimilarity.getInstance().getSimilarities(uniqueTokens, soTags);
+				Map<String, Double> simMap = new HashMap<>();
+				for (String token : uniqueTokens) {
+					int tokenIndex = w2v.indexOf(token);
+					if (tokenIndex < 0) continue;
+					float[] tokenVector = new float[W2VSimilarity.DIM];
+					w2v.readRow(tokenIndex, tokenVector);
+					for (int i = 0; i < soTags.size(); i++) {
+						if (tagVectors[i] == null) continue;
+						float sum = 0f;
+						for (int k = 0; k < W2VSimilarity.DIM; k++) {
+							sum += tokenVector[k] * tagVectors[i][k];
+						}
+						if (sum > 0.0f) {
+							simMap.put(token + "__" + soTags.get(i), (double) sum);
+						}
+					}
+				}
 				long simElapsed = System.currentTimeMillis() - simStart;
 				diffsProcessed++;
 				if (simElapsed > 1000) {
-					MyUtils.println("  WARNING: getSimilarities took " + simElapsed + "ms for " + uniqueTokens.size() + " tokens (diffs=" + diffsProcessed + ")", indentationLevel);
+					MyUtils.println("  WARNING: similarity compute took " + simElapsed + "ms for " + uniqueTokens.size() + " tokens (diffs=" + diffsProcessed + ")", indentationLevel);
 				}
 
 				// Compute vocabCount: distinct unique tokens that appear in any simMap key
