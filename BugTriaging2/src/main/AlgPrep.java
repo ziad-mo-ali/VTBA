@@ -1391,10 +1391,6 @@ public class AlgPrep {
 					for (int k = 0; k < W2VSimilarity.DIM; k++) {
 						sum += tokenVector[k] * tagVector[k];
 					}
-					float sum = 0f;
-					for (int k = 0; k < W2VSimilarity.DIM; k++) {
-						sum += tokenVector[k] * tagVector[k];
-					}
 					if (sum > 0.0f) {
 						tagScoreSums[i] += sum * freq;
 					}
