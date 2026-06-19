@@ -3,7 +3,6 @@ package main;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.nio.MappedByteBuffer;
@@ -15,17 +14,13 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 
-public final class W2VSimilarity implements AutoCloseable {
+public final class W2VSimilarity {
 
     public static final int DIM = 300;
     private static final int CHUNK_SIZE = 1 << 30; // 1 GiB chunks, must be a multiple of 4
 
-    private static final int CHUNK_FLOATS = CHUNK_SIZE / Integer.BYTES;
-
     private final Map<String, Integer> vocab;
-    private final MappedByteBuffer[] buffers;
-    private final FloatBuffer[] floatBuffers;
-    private final FileChannel channel; // kept open for the life of the mmap
+    private final float[] allVectors;
 
     public W2VSimilarity(Path vocabPath, Path vectorsPath) throws IOException {
         ObjectMapper mapper = new ObjectMapper();
@@ -33,33 +28,37 @@ public final class W2VSimilarity implements AutoCloseable {
         Map<String, Integer> loaded = mapper.readValue(vocabPath.toFile(), Map.class);
         this.vocab = Collections.unmodifiableMap(loaded);
 
-        this.channel = FileChannel.open(vectorsPath, StandardOpenOption.READ);
-        long fileSize = channel.size();
-        if (fileSize % Integer.BYTES != 0) {
-            throw new IllegalStateException("vectors.bin size is not a multiple of 4 bytes");
-        }
-
         long expectedFloats = (long) vocab.size() * DIM;
-        long actualFloats = fileSize / Integer.BYTES;
-        if (actualFloats != expectedFloats) {
-            throw new IllegalStateException(
-                "vectors.bin size mismatch: expected " + expectedFloats +
-                " floats for vocab size " + vocab.size() +
-                " (dim=" + DIM + "), got " + actualFloats +
-                ". Did the export script and DIM constant get out of sync?");
-        }
+        this.allVectors = new float[Math.toIntExact(expectedFloats)];
 
-        int numChunks = (int) ((fileSize + CHUNK_SIZE - 1) / CHUNK_SIZE);
-        this.buffers = new MappedByteBuffer[numChunks];
-        this.floatBuffers = new FloatBuffer[numChunks];
-        long position = 0;
-        for (int i = 0; i < numChunks; i++) {
-            int size = (int) Math.min(CHUNK_SIZE, fileSize - position);
-            MappedByteBuffer buf = channel.map(FileChannel.MapMode.READ_ONLY, position, size);
-            buf.order(ByteOrder.LITTLE_ENDIAN);
-            this.buffers[i] = buf;
-            this.floatBuffers[i] = buf.asFloatBuffer();
-            position += size;
+        try (FileChannel channel = FileChannel.open(vectorsPath, StandardOpenOption.READ)) {
+            long fileSize = channel.size();
+            if (fileSize % Integer.BYTES != 0) {
+                throw new IllegalStateException("vectors.bin size is not a multiple of 4 bytes");
+            }
+
+            long actualFloats = fileSize / Integer.BYTES;
+            if (actualFloats != expectedFloats) {
+                throw new IllegalStateException(
+                    "vectors.bin size mismatch: expected " + expectedFloats +
+                    " floats for vocab size " + vocab.size() +
+                    " (dim=" + DIM + "), got " + actualFloats +
+                    ". Did the export script and DIM constant get out of sync?");
+            }
+
+            int numChunks = (int) ((fileSize + CHUNK_SIZE - 1) / CHUNK_SIZE);
+            long position = 0;
+            int destOffset = 0;
+            for (int i = 0; i < numChunks; i++) {
+                int size = (int) Math.min(CHUNK_SIZE, fileSize - position);
+                MappedByteBuffer buf = channel.map(FileChannel.MapMode.READ_ONLY, position, size);
+                buf.order(ByteOrder.LITTLE_ENDIAN);
+                FloatBuffer floatBuf = buf.asFloatBuffer();
+                int chunkFloats = size / Integer.BYTES;
+                floatBuf.get(allVectors, destOffset, chunkFloats);
+                destOffset += chunkFloats;
+                position += size;
+            }
         }
     }
 
@@ -86,13 +85,8 @@ public final class W2VSimilarity implements AutoCloseable {
         if (dest.length != DIM) {
             throw new IllegalArgumentException("Destination array must have length " + DIM);
         }
-        long byteIndex = (long) rowIndex * DIM * Integer.BYTES;
-        int chunk = (int) (byteIndex / CHUNK_SIZE);
-        int offset = (int) (byteIndex - (long) chunk * CHUNK_SIZE);
-        int floatOffset = offset / Integer.BYTES;
-        FloatBuffer buf = floatBuffers[chunk].duplicate();
-        buf.position(floatOffset);
-        buf.get(dest);
+        int srcOffset = rowIndex * DIM;
+        System.arraycopy(allVectors, srcOffset, dest, 0, DIM);
     }
 
     /**
@@ -142,33 +136,18 @@ public final class W2VSimilarity implements AutoCloseable {
                 out[c] = Float.NaN;
                 continue;
             }
-            out[c] = dotByOffset(off1, j * DIM);
+            out[c] = dot(i, j);
         }
         return out;
     }
 
     private float dot(int row1, int row2) {
-        return dotByOffset((long) row1 * DIM, (long) row2 * DIM);
-    }
-
-    private float dotByOffset(long off1, long off2) {
-        int chunk1 = (int) (off1 / CHUNK_FLOATS);
-        int chunk2 = (int) (off2 / CHUNK_FLOATS);
-        int pos1 = (int) (off1 - (long) chunk1 * CHUNK_FLOATS);
-        int pos2 = (int) (off2 - (long) chunk2 * CHUNK_FLOATS);
-        FloatBuffer buf1 = floatBuffers[chunk1].duplicate();
-        FloatBuffer buf2 = floatBuffers[chunk2].duplicate();
-        buf1.position(pos1);
-        buf2.position(pos2);
+        int off1 = row1 * DIM;
+        int off2 = row2 * DIM;
         float sum = 0f;
         for (int k = 0; k < DIM; k++) {
-            sum += buf1.get() * buf2.get();
+            sum += allVectors[off1 + k] * allVectors[off2 + k];
         }
         return sum;
-    }
-
-    @Override
-    public void close() throws IOException {
-        channel.close();
     }
 }

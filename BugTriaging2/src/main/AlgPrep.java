@@ -1305,20 +1305,18 @@ public class AlgPrep {
 			MyUtils.println(String.format("W2V similarity index initialized in %.1f sec", (System.currentTimeMillis() - initStart) / 1000.0), indentationLevel);
 
 			int tagCount = soTags.size();
-			float[][] activeTagVectors = new float[tagCount][];
+			int[] activeTagIndices = new int[tagCount];
 			String[] activeTagNames = new String[tagCount];
 			int activeTagCount = 0;
 			for (int i = 0; i < tagCount; i++) {
 				String tag = soTags.get(i);
 				int tagIndex = w2v.indexOf(tag);
 				if (tagIndex >= 0) {
-					activeTagVectors[activeTagCount] = new float[W2VSimilarity.DIM];
-					w2v.readRow(tagIndex, activeTagVectors[activeTagCount]);
+					activeTagIndices[activeTagCount] = tagIndex;
 					activeTagNames[activeTagCount] = tag;
 					activeTagCount++;
 				}
 			}
-			float[] tokenVector = new float[W2VSimilarity.DIM];
 			double[] tagScoreSums = new double[activeTagCount];
 			long startTime = System.currentTimeMillis();
 			char[] spinner = new char[]{'|', '/', '-', '\\'};
@@ -1384,14 +1382,9 @@ public class AlgPrep {
 					if (simStart == 0) {
 						simStart = System.currentTimeMillis();
 					}
-					w2v.readRow(tokenIndex, tokenVector);
 					int freq = tokenFreqs.getOrDefault(token, 1);
 					for (int i = 0; i < activeTagCount; i++) {
-						float[] tagVector = activeTagVectors[i];
-						float sum = 0f;
-						for (int k = 0; k < W2VSimilarity.DIM; k++) {
-							sum += tokenVector[k] * tagVector[k];
-						}
+						float sum = w2v.similarity(tokenIndex, activeTagIndices[i]);
 						if (sum > 0.0f) {
 							tagScoreSums[i] += sum * freq;
 						}
