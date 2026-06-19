@@ -6,14 +6,13 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-
-import com.google.common.collect.ImmutableMap;
 
 import data.Evidence;
 import main.AlgPrep;
@@ -62,26 +61,30 @@ public class Constants {
 	public static final String ASSIGNMENT_RESULTS_OVERAL_FOLDER_NAME = "outDetails";
 	public static final String TAGS_SEPARATOR = ";;";
 	public static final String FIELD_DELIMITER_FOR_JSON_OBJECT = "/&";
-	public static final Map<String, List<String>> USEFUL_FIELDS_IN_JSON_FILES = ImmutableMap.<String, List<String>> builder()
-			.put("bugs", Arrays.asList(new String[] { "_id", "url", "author", "createdAt{}$date", "labels[]name", "status", "title", "body" }))
-			.put("bugs:labels", Arrays.asList(new String[] { "id", "url", "author", "createdAt", "labels", "status", "title", "body" }))
-			.put("bugs:FieldsToRemoveInvalidCharacters", Arrays.asList(new String[] { "title", "body" }))
-			.put("comments", Arrays.asList(new String[] { "_id", "projectId", "createdAt{}$date", "user", "type", "commitSha", "issueNumber", "body" }))
-			.put("comments:labels", Arrays.asList(new String[] { "id", "projectId", "createdAt", "user", "type", "commitSha", "issueNumber", "body" }))
-			.put("comments:FieldsToRemoveInvalidCharacters", Arrays.asList(new String[] { "body" }))
-			.put("commits", Arrays.asList(new String[] { "_id", "projectId", "user", "createdAt{}$date", "url", "message" }))
-			.put("commits:labels", Arrays.asList(new String[] { "sha", "projectId", "user", "createdAt", "url", "commitMessage" }))
-			.put("commits:FieldsToRemoveInvalidCharacters", Arrays.asList(new String[] { "message" }))
-			.put("githubissues", Arrays.asList(new String[] { "_id", "bug", "project", "isPR", "number", "assignees[]username" }))
-			.put("githubissues:labels", Arrays.asList(new String[] { "id", "issue_Or_PRId_In_Bugs.tsv", "projectId", "isPR", "number", "assignees" }))
-			.put("githubissues:FieldsToRemoveInvalidCharacters", Arrays.asList(new String[] { }))
-			.put("githubprofiles", Arrays.asList(new String[] { "_id", "email", "createdAt{}$date", "updatedAt{}$date", "repositories" }))
-			.put("githubprofiles:labels", Arrays.asList(new String[] { "id", "email", "createdAt", "updatedAt", "repositories" }))
-			.put("githubprofiles:FieldsToRemoveInvalidCharacters", Arrays.asList(new String[] { }))
-			.put("projects", Arrays.asList(new String[] { "_id", "name", "description", "mainLanguagesPercentages", "languages[]_id&amount" }))
-			.put("projects:labels", Arrays.asList(new String[] { "id", "name", "description", "mainLanguagesPercentages", "[language^linesOfCode;;...]" }))
-			.put("projects:FieldsToRemoveInvalidCharacters", Arrays.asList(new String[] {"description"}))
-			.build();
+	public static final Map<String, List<String>> USEFUL_FIELDS_IN_JSON_FILES;
+
+	static {
+		Map<String, List<String>> usefulFields = new HashMap<>();
+		usefulFields.put("bugs", Arrays.asList(new String[] { "_id", "url", "author", "createdAt{}$date", "labels[]name", "status", "title", "body" }));
+		usefulFields.put("bugs:labels", Arrays.asList(new String[] { "id", "url", "author", "createdAt", "labels", "status", "title", "body" }));
+		usefulFields.put("bugs:FieldsToRemoveInvalidCharacters", Arrays.asList(new String[] { "title", "body" }));
+		usefulFields.put("comments", Arrays.asList(new String[] { "_id", "projectId", "createdAt{}$date", "user", "type", "commitSha", "issueNumber", "body" }));
+		usefulFields.put("comments:labels", Arrays.asList(new String[] { "id", "projectId", "createdAt", "user", "type", "commitSha", "issueNumber", "body" }));
+		usefulFields.put("comments:FieldsToRemoveInvalidCharacters", Arrays.asList(new String[] { "body" }));
+		usefulFields.put("commits", Arrays.asList(new String[] { "_id", "projectId", "user", "createdAt{}$date", "url", "message" }));
+		usefulFields.put("commits:labels", Arrays.asList(new String[] { "sha", "projectId", "user", "createdAt", "url", "commitMessage" }));
+		usefulFields.put("commits:FieldsToRemoveInvalidCharacters", Arrays.asList(new String[] { "message" }));
+		usefulFields.put("githubissues", Arrays.asList(new String[] { "_id", "bug", "project", "isPR", "number", "assignees[]username" }));
+		usefulFields.put("githubissues:labels", Arrays.asList(new String[] { "id", "issue_Or_PRId_In_Bugs.tsv", "projectId", "isPR", "number", "assignees" }));
+		usefulFields.put("githubissues:FieldsToRemoveInvalidCharacters", Arrays.asList(new String[] { }));
+		usefulFields.put("githubprofiles", Arrays.asList(new String[] { "_id", "email", "createdAt{}$date", "updatedAt{}$date", "repositories" }));
+		usefulFields.put("githubprofiles:labels", Arrays.asList(new String[] { "id", "email", "createdAt", "updatedAt", "repositories" }));
+		usefulFields.put("githubprofiles:FieldsToRemoveInvalidCharacters", Arrays.asList(new String[] { }));
+		usefulFields.put("projects", Arrays.asList(new String[] { "_id", "name", "description", "mainLanguagesPercentages", "languages[]_id&amount" }));
+		usefulFields.put("projects:labels", Arrays.asList(new String[] { "id", "name", "description", "mainLanguagesPercentages", "[language^linesOfCode;;...]" }));
+		usefulFields.put("projects:FieldsToRemoveInvalidCharacters", Arrays.asList(new String[] {"description"}));
+		USEFUL_FIELDS_IN_JSON_FILES = Collections.unmodifiableMap(usefulFields);
+	}
 
 	public static final String SEPARATOR_FOR_ARRAY_ITEMS = ";;";
 	public static final String MINOR_SEPARATOR_FOR_FIELDS_IN_OBJECT_IN_AN_ARRAY_ITEM = "^";

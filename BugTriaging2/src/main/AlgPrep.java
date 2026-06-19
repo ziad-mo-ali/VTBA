@@ -62,17 +62,15 @@ public class AlgPrep {
 		public String sha;
 		public String user;
 		public Date date;
-		public Map<String, Double> tagScores;
+        public float[] commitVector;
 
-		public CommitRecord(String sha, String user, Date date, Map<String, Double> tagScores) {
-			this.sha = sha;
-			this.user = user;
-			this.date = date;
-			this.tagScores = tagScores;
-		}
+        public CommitRecord(String sha, String user, Date date, float[] commitVector) {
+            this.sha = sha;
+            this.user = user;
+            this.date = date;
+            this.commitVector = commitVector;
+        }
 	}
-
-	//------------------------------------------------------------------------------------------------------------------------
 	//------------------------------------------------------------------------------------------------------------------------
 	//The following method returns project type (one of the 13 main FASE projects, 3 other projects, project families or other (unknown)).
 	public static ProjectType projectType(String projectId, String owner_repo){
@@ -436,6 +434,7 @@ public class AlgPrep {
 		else if (generalExperimentType == GeneralExperimentType.COMMIT_WORD2VEC) {
 			if (developerCommitIndex != null && developerCommitIndex.containsKey(login)) {
 				ArrayList<AlgPrep.CommitRecord> commits = developerCommitIndex.get(login);
+				WordVecSimilarity w2v = WordVecSimilarity.getInstance();
 				
 				// Filter commits before bug date
 				List<AlgPrep.CommitRecord> commitsBeforeBug = new ArrayList<>();
@@ -451,8 +450,14 @@ public class AlgPrep {
 					double avgCommitsPerPeriod = commitsBeforeBug.size() / (double) Math.max(1, periodDays);
 					if (avgCommitsPerPeriod == 0.0) avgCommitsPerPeriod = 1.0;
 					
-					// Score each tag in bug query
+					int[] queryTagIndices = new int[wAC.size];
 					for (int i = 0; i < wAC.size; i++) {
+						queryTagIndices[i] = w2v.indexOf(wAC.words[i]);
+					}
+					
+					for (int i = 0; i < wAC.size; i++) {
+						int tagIndex = queryTagIndices[i];
+						if (tagIndex < 0) continue;
 						String tag = wAC.words[i];
 						double termWeight = graph.getNodeWeight(tag);
 						double tagAggScore = 0.0;
@@ -461,7 +466,10 @@ public class AlgPrep {
 							AlgPrep.CommitRecord cr = commitsBeforeBug.get(j);
 							int commitsAfter = commitsBeforeBug.size() - 1 - j;
 							double recency = 1.0 / (1.0 + commitsAfter / avgCommitsPerPeriod);
-							tagAggScore += cr.tagScores.getOrDefault(tag, 0.0) * recency;
+							float sim = w2v.dot(cr.commitVector, tagIndex);
+							if (sim > 0.0f) {
+								tagAggScore += sim * recency;
+							}
 						}
 						score += wAC.counts[i] * termWeight * tagAggScore;
 					}
@@ -1304,23 +1312,9 @@ public class AlgPrep {
 			WordVecSimilarity w2v = WordVecSimilarity.getInstance();
 			MyUtils.println(String.format("W2V similarity index initialized in %.1f sec", (System.currentTimeMillis() - initStart) / 1000.0), indentationLevel);
 
-			int tagCount = soTags.size();
-			int[] activeTagIndices = new int[tagCount];
-			String[] activeTagNames = new String[tagCount];
-			int activeTagCount = 0;
-			for (int i = 0; i < tagCount; i++) {
-				String tag = soTags.get(i);
-				int tagIndex = w2v.indexOf(tag);
-				if (tagIndex >= 0) {
-					activeTagIndices[activeTagCount] = tagIndex;
-					activeTagNames[activeTagCount] = tag;
-					activeTagCount++;
-				}
-			}
-			double[] tagScoreSums = new double[activeTagCount];
 			long startTime = System.currentTimeMillis();
 			char[] spinner = new char[]{'|', '/', '-', '\\'};
-			
+
 			while ((s = br.readLine()) != null) {
 				lineCount++;
 				boolean progressLine = (lineCount % 10000 == 0);
@@ -1328,7 +1322,7 @@ public class AlgPrep {
 					long elapsed = (System.currentTimeMillis() - startTime) / 1000;
 					double rate = (elapsed > 0) ? lineCount / (double) elapsed : 0;
 					int spinIdx = ((lineCount / 10000) - 1) % spinner.length;
-					MyUtils.println(String.format("Processed %,d commit diff lines... %c [%.1f lines/sec, %d sec elapsed, diffs=%d]", 
+					MyUtils.println(String.format("Processed %,d commit diff lines... %c [%.1f lines/sec, %d sec elapsed, diffs=%d]",
 						lineCount, spinner[spinIdx], rate, elapsed, diffsProcessed), indentationLevel);
 				}
 
@@ -1370,12 +1364,13 @@ public class AlgPrep {
 				}
 				int totalTokenCount = tokensArray.length; // |c_j| before dedup
 
-				// Send only unique tokens to Python
 				List<String> uniqueTokens = new ArrayList<>(tokenFreqs.keySet());
 				if (uniqueTokens.isEmpty()) continue;
 
-				Arrays.fill(tagScoreSums, 0.0);
+				float[] commitVector = new float[W2VSimilarity.DIM];
+				float[] tokenVec = new float[W2VSimilarity.DIM];
 				long simStart = 0;
+
 				for (String token : uniqueTokens) {
 					int tokenIndex = w2v.indexOf(token);
 					if (tokenIndex < 0) continue;
@@ -1383,29 +1378,24 @@ public class AlgPrep {
 						simStart = System.currentTimeMillis();
 					}
 					int freq = tokenFreqs.getOrDefault(token, 1);
-					for (int i = 0; i < activeTagCount; i++) {
-						float sum = w2v.dot(tokenIndex, activeTagIndices[i]);
-						if (sum > 0.0f) {
-							tagScoreSums[i] += sum * freq;
-						}
+					w2v.readRow(tokenIndex, tokenVec);
+					for (int k = 0; k < W2VSimilarity.DIM; k++) {
+						commitVector[k] += tokenVec[k] * freq;
 					}
-				}
-				Map<String, Double> tagScores = new HashMap<>();
-			if (simStart != 0) {
-				long simElapsed = System.currentTimeMillis() - simStart;
-				diffsProcessed++;
-				if (simElapsed > 1000) {
-					MyUtils.println("  WARNING: similarity compute took " + simElapsed + "ms for " + uniqueTokens.size() + " tokens (diffs=" + diffsProcessed + ")", indentationLevel);
-				}
-				for (int i = 0; i < activeTagCount; i++) {
-					double tagScore = (totalTokenCount == 0) ? 0.0 : tagScoreSums[i] / totalTokenCount;
-					if (tagScore > 0.0) {
-						tagScores.put(activeTagNames[i], tagScore);
-					}
-				}
 				}
 
-				CommitRecord cr = new CommitRecord(commitSHA, developer, parsedDate, tagScores);
+				if (simStart != 0 && totalTokenCount > 0) {
+					for (int k = 0; k < W2VSimilarity.DIM; k++) {
+						commitVector[k] /= totalTokenCount;
+					}
+					long simElapsed = System.currentTimeMillis() - simStart;
+					diffsProcessed++;
+					if (simElapsed > 1000) {
+						MyUtils.println("  WARNING: similarity compute took " + simElapsed + "ms for " + uniqueTokens.size() + " tokens (diffs=" + diffsProcessed + ")", indentationLevel);
+					}
+				}
+
+				CommitRecord cr = new CommitRecord(commitSHA, developer, parsedDate, commitVector);
 				developerCommitIndex.computeIfAbsent(developer, k -> new ArrayList<>()).add(cr);
 			}
 

@@ -1,16 +1,17 @@
 package main;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import java.io.IOException;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -23,9 +24,8 @@ public final class W2VSimilarity {
     private final float[] allVectors;
 
     public W2VSimilarity(Path vocabPath, Path vectorsPath) throws IOException {
-        ObjectMapper mapper = new ObjectMapper();
-        @SuppressWarnings("unchecked")
-        Map<String, Integer> loaded = mapper.readValue(vocabPath.toFile(), Map.class);
+        String json = Files.readString(vocabPath, StandardCharsets.UTF_8);
+        Map<String, Integer> loaded = parseVocabJson(json);
         this.vocab = Collections.unmodifiableMap(loaded);
 
         long expectedFloats = (long) vocab.size() * DIM;
@@ -89,6 +89,35 @@ public final class W2VSimilarity {
         System.arraycopy(allVectors, srcOffset, dest, 0, DIM);
     }
 
+    private static Map<String, Integer> parseVocabJson(String json) {
+        Map<String, Integer> result = new HashMap<>();
+        String trimmed = json.trim();
+        if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) {
+            throw new IllegalArgumentException("Invalid vocab.json format");
+        }
+        trimmed = trimmed.substring(1, trimmed.length() - 1).trim();
+        if (trimmed.isEmpty()) {
+            return result;
+        }
+        String[] entries = trimmed.split(",(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)");
+        for (String entry : entries) {
+            String[] kv = entry.split(":", 2);
+            if (kv.length != 2) {
+                continue;
+            }
+            String key = kv[0].trim();
+            String value = kv[1].trim();
+            if (key.startsWith("\"") && key.endsWith("\"")) {
+                key = key.substring(1, key.length() - 1);
+            }
+            if (value.startsWith("\"") && value.endsWith("\"")) {
+                value = value.substring(1, value.length() - 1);
+            }
+            result.put(key, Integer.parseInt(value));
+        }
+        return result;
+    }
+
     /**
      * Cosine similarity between two token indexes.
      */
@@ -147,6 +176,18 @@ public final class W2VSimilarity {
         float sum = 0f;
         for (int k = 0; k < DIM; k++) {
             sum += allVectors[off1 + k] * allVectors[off2 + k];
+        }
+        return sum;
+    }
+
+    public float dot(float[] vector, int rowIndex) {
+        if (vector.length != DIM) {
+            throw new IllegalArgumentException("vector length must be " + DIM);
+        }
+        int off2 = rowIndex * DIM;
+        float sum = 0f;
+        for (int k = 0; k < DIM; k++) {
+            sum += vector[k] * allVectors[off2 + k];
         }
         return sum;
     }
