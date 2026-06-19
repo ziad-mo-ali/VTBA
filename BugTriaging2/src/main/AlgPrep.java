@@ -1296,6 +1296,7 @@ public class AlgPrep {
 
 		try (BufferedReader br = new BufferedReader(new FileReader(inputPath + "/" + commitsDiffsInputFileName))) {
 			int lineCount = 0;
+			int diffsProcessed = 0;
 			String s;
 			br.readLine(); // header
 			long initStart = System.currentTimeMillis();
@@ -1307,12 +1308,13 @@ public class AlgPrep {
 			
 			while ((s = br.readLine()) != null) {
 				lineCount++;
-				if (lineCount % 10000 == 0) {
+				boolean progressLine = (lineCount % 10000 == 0);
+				if (progressLine) {
 					long elapsed = (System.currentTimeMillis() - startTime) / 1000;
 					double rate = (elapsed > 0) ? lineCount / (double) elapsed : 0;
 					int spinIdx = ((lineCount / 10000) - 1) % spinner.length;
-					MyUtils.println(String.format("Processed %,d commit diff lines... %c [%.1f lines/sec, %d sec elapsed]", 
-						lineCount, spinner[spinIdx], rate, elapsed), indentationLevel);
+					MyUtils.println(String.format("Processed %,d commit diff lines... %c [%.1f lines/sec, %d sec elapsed, diffs=%d]", 
+						lineCount, spinner[spinIdx], rate, elapsed, diffsProcessed), indentationLevel);
 				}
 
 				String[] fields = s.split("\t");
@@ -1360,8 +1362,9 @@ public class AlgPrep {
 				long simStart = System.currentTimeMillis();
 				Map<String, Double> simMap = WordVecSimilarity.getInstance().getSimilarities(uniqueTokens, soTags);
 				long simElapsed = System.currentTimeMillis() - simStart;
+				diffsProcessed++;
 				if (simElapsed > 1000) {
-					MyUtils.println("  WARNING: getSimilarities took " + simElapsed + "ms for " + uniqueTokens.size() + " tokens", indentationLevel);
+					MyUtils.println("  WARNING: getSimilarities took " + simElapsed + "ms for " + uniqueTokens.size() + " tokens (diffs=" + diffsProcessed + ")", indentationLevel);
 				}
 
 				// Compute vocabCount: distinct unique tokens that appear in any simMap key
