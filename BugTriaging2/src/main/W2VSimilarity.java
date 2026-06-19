@@ -99,21 +99,74 @@ public final class W2VSimilarity {
         if (trimmed.isEmpty()) {
             return result;
         }
-        String[] entries = trimmed.split(",(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)");
-        for (String entry : entries) {
-            String[] kv = entry.split(":", 2);
-            if (kv.length != 2) {
+
+        int i = 0;
+        int len = trimmed.length();
+        while (i < len) {
+            while (i < len && Character.isWhitespace(trimmed.charAt(i))) {
+                i++;
+            }
+            if (i >= len) {
+                break;
+            }
+            if (trimmed.charAt(i) == ',') {
+                i++;
                 continue;
             }
-            String key = kv[0].trim();
-            String value = kv[1].trim();
-            if (key.startsWith("\"") && key.endsWith("\"")) {
-                key = key.substring(1, key.length() - 1);
+            if (trimmed.charAt(i) != '"') {
+                throw new IllegalArgumentException("Invalid vocab.json entry at position " + i);
             }
-            if (value.startsWith("\"") && value.endsWith("\"")) {
-                value = value.substring(1, value.length() - 1);
+            i++;
+            StringBuilder key = new StringBuilder();
+            while (i < len) {
+                char c = trimmed.charAt(i);
+                if (c == '\\') {
+                    i++;
+                    if (i >= len) {
+                        throw new IllegalArgumentException("Invalid escape in vocab.json");
+                    }
+                    key.append(trimmed.charAt(i));
+                } else if (c == '"') {
+                    i++;
+                    break;
+                } else {
+                    key.append(c);
+                }
+                i++;
             }
-            result.put(key, Integer.parseInt(value));
+            while (i < len && Character.isWhitespace(trimmed.charAt(i))) {
+                i++;
+            }
+            if (i >= len || trimmed.charAt(i) != ':') {
+                throw new IllegalArgumentException("Invalid vocab.json key/value separator");
+            }
+            i++;
+            while (i < len && Character.isWhitespace(trimmed.charAt(i))) {
+                i++;
+            }
+            if (i >= len) {
+                throw new IllegalArgumentException("Invalid vocab.json value");
+            }
+            int sign = 1;
+            if (trimmed.charAt(i) == '-') {
+                sign = -1;
+                i++;
+            }
+            if (i >= len || !Character.isDigit(trimmed.charAt(i))) {
+                throw new IllegalArgumentException("Invalid vocab.json integer value");
+            }
+            int value = 0;
+            while (i < len && Character.isDigit(trimmed.charAt(i))) {
+                value = value * 10 + (trimmed.charAt(i) - '0');
+                i++;
+            }
+            result.put(key.toString(), value * sign);
+            while (i < len && Character.isWhitespace(trimmed.charAt(i))) {
+                i++;
+            }
+            if (i < len && trimmed.charAt(i) == ',') {
+                i++;
+            }
         }
         return result;
     }
