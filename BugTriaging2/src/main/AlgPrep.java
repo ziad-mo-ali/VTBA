@@ -1298,18 +1298,22 @@ public class AlgPrep {
 			int lineCount = 0;
 			String s;
 			br.readLine(); // header
-		long startTime = System.currentTimeMillis();
-		char[] spinner = new char[]{'|', '/', '-', '\\'};
-		
-		while ((s = br.readLine()) != null) {
-			lineCount++;
-			if (lineCount % 10000 == 0) {
-				long elapsed = (System.currentTimeMillis() - startTime) / 1000;
-				double rate = (elapsed > 0) ? lineCount / (double) elapsed : 0;
-				int spinIdx = ((lineCount / 10000) - 1) % spinner.length;
-				MyUtils.println(String.format("Processed %,d commit diff lines... %c [%.1f lines/sec, %d sec elapsed]", 
-					lineCount, spinner[spinIdx], rate, elapsed), indentationLevel);
-			}
+			long startTime = System.currentTimeMillis();
+			char[] spinner = new char[]{'|', '/', '-', '\\'};
+			
+			while ((s = br.readLine()) != null) {
+				lineCount++;
+				if (lineCount % 10000 == 0) {
+					long elapsed = (System.currentTimeMillis() - startTime) / 1000;
+					double rate = (elapsed > 0) ? lineCount / (double) elapsed : 0;
+					int spinIdx = ((lineCount / 10000) - 1) % spinner.length;
+					MyUtils.println(String.format("Processed %,d commit diff lines... %c [%.1f lines/sec, %d sec elapsed]", 
+						lineCount, spinner[spinIdx], rate, elapsed), indentationLevel);
+				}
+
+				String[] fields = s.split("\t");
+				if (fields.length != 5) {
+					fMR.errors++;
 					continue;
 				}
 
@@ -1384,7 +1388,7 @@ public class AlgPrep {
 			developerCommitIndex.forEach((dev, list) -> list.sort(Comparator.comparing(cr -> cr.date)));
 
 			MyUtils.println("Indexed commit diff records for projectId: " + projectId, indentationLevel);
-		} catch (IOException e) {
+
 			fMR.errors++;
 			System.out.println("ERROR reading commit diff evidence!");
 			e.printStackTrace();
