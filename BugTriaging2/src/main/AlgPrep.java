@@ -1384,7 +1384,7 @@ public class AlgPrep {
 					}
 					int freq = tokenFreqs.getOrDefault(token, 1);
 					for (int i = 0; i < activeTagCount; i++) {
-						float sum = w2v.similarity(tokenIndex, activeTagIndices[i]);
+						float sum = w2v.dot(tokenIndex, activeTagIndices[i]);
 						if (sum > 0.0f) {
 							tagScoreSums[i] += sum * freq;
 						}
