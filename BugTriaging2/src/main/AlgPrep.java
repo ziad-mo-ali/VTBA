@@ -1303,6 +1303,21 @@ public class AlgPrep {
 			MyUtils.println("Initializing W2V similarity index...", indentationLevel);
 			WordVecSimilarity w2v = WordVecSimilarity.getInstance();
 			MyUtils.println(String.format("W2V similarity index initialized in %.1f sec", (System.currentTimeMillis() - initStart) / 1000.0), indentationLevel);
+
+			int tagCount = soTags.size();
+			float[][] activeTagVectors = new float[tagCount][];
+			String[] activeTagNames = new String[tagCount];
+			int activeTagCount = 0;
+			for (int i = 0; i < tagCount; i++) {
+				String tag = soTags.get(i);
+				int tagIndex = w2v.indexOf(tag);
+				if (tagIndex >= 0) {
+					activeTagVectors[activeTagCount] = new float[W2VSimilarity.DIM];
+					w2v.readRow(tagIndex, activeTagVectors[activeTagCount]);
+					activeTagNames[activeTagCount] = tag;
+					activeTagCount++;
+				}
+			}
 			long startTime = System.currentTimeMillis();
 			char[] spinner = new char[]{'|', '/', '-', '\\'};
 			
@@ -1359,63 +1374,45 @@ public class AlgPrep {
 				List<String> uniqueTokens = new ArrayList<>(tokenFreqs.keySet());
 				if (uniqueTokens.isEmpty()) continue;
 
-				float[][] tagVectors = new float[soTags.size()][];
-				for (int i = 0; i < soTags.size(); i++) {
-					String tag = soTags.get(i);
-					int tagIndex = w2v.indexOf(tag);
-					if (tagIndex >= 0) {
-						tagVectors[i] = new float[W2VSimilarity.DIM];
-						w2v.readRow(tagIndex, tagVectors[i]);
+			float[] tokenVector = new float[W2VSimilarity.DIM];
+			long simStart = 0;
+			double[] tagScoreSums = new double[activeTagCount];
+			for (String token : uniqueTokens) {
+				int tokenIndex = w2v.indexOf(token);
+				if (tokenIndex < 0) continue;
+				if (simStart == 0) {
+					simStart = System.currentTimeMillis();
+				}
+				w2v.readRow(tokenIndex, tokenVector);
+				int freq = tokenFreqs.getOrDefault(token, 1);
+				for (int i = 0; i < activeTagCount; i++) {
+					float[] tagVector = activeTagVectors[i];
+					float sum = 0f;
+					for (int k = 0; k < W2VSimilarity.DIM; k++) {
+						sum += tokenVector[k] * tagVector[k];
+					}
+					float sum = 0f;
+					for (int k = 0; k < W2VSimilarity.DIM; k++) {
+						sum += tokenVector[k] * tagVector[k];
+					}
+					if (sum > 0.0f) {
+						tagScoreSums[i] += sum * freq;
 					}
 				}
-
-				long simStart = System.currentTimeMillis();
-				Map<String, Double> simMap = new HashMap<>();
-				for (String token : uniqueTokens) {
-					int tokenIndex = w2v.indexOf(token);
-					if (tokenIndex < 0) continue;
-					float[] tokenVector = new float[W2VSimilarity.DIM];
-					w2v.readRow(tokenIndex, tokenVector);
-					for (int i = 0; i < soTags.size(); i++) {
-						if (tagVectors[i] == null) continue;
-						float sum = 0f;
-						for (int k = 0; k < W2VSimilarity.DIM; k++) {
-							sum += tokenVector[k] * tagVectors[i][k];
-						}
-						if (sum > 0.0f) {
-							simMap.put(token + "__" + soTags.get(i), (double) sum);
-						}
-					}
-				}
+			}
+			Map<String, Double> tagScores = new HashMap<>();
+			if (simStart != 0) {
 				long simElapsed = System.currentTimeMillis() - simStart;
 				diffsProcessed++;
 				if (simElapsed > 1000) {
 					MyUtils.println("  WARNING: similarity compute took " + simElapsed + "ms for " + uniqueTokens.size() + " tokens (diffs=" + diffsProcessed + ")", indentationLevel);
 				}
-
-				// Compute vocabCount: distinct unique tokens that appear in any simMap key
-				Set<String> vocabTokens = new HashSet<>();
-				for (String key : simMap.keySet()) {
-					int sep = key.indexOf("__");
-					if (sep > 0) vocabTokens.add(key.substring(0, sep));
-				}
-				int vocabCount = vocabTokens.size();
-
-				// Compute tagScores: weight each similarity by token frequency
-				Map<String, Double> tagScores = new HashMap<>();
-				for (String tag : soTags) {
-					double simSum = 0.0;
-					for (Map.Entry<String, Double> entry : simMap.entrySet()) {
-						String key = entry.getKey();
-						if (key.endsWith("__" + tag)) {
-							String tok = key.substring(0, key.indexOf("__"));
-							int freq = tokenFreqs.getOrDefault(tok, 1);
-							simSum += entry.getValue() * freq;
-						}
+				for (int i = 0; i < activeTagCount; i++) {
+					double tagScore = (totalTokenCount == 0) ? 0.0 : tagScoreSums[i] / totalTokenCount;
+					if (tagScore > 0.0) {
+						tagScores.put(activeTagNames[i], tagScore);
 					}
-					// Normalize by total token count (not vocabCount) to preserve |c_j| semantics
-					double tagScore = (totalTokenCount == 0) ? 0.0 : simSum / totalTokenCount;
-					if (tagScore > 0.0) tagScores.put(tag, tagScore);
+				}
 				}
 
 				CommitRecord cr = new CommitRecord(commitSHA, developer, parsedDate, tagScores);
