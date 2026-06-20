@@ -73,6 +73,49 @@ public class AlgPrep {
             this.recency = 1.0;
         }
 	}
+
+	public static class W2VQueryState {
+		public final int[] tagIndices;
+		public final float[][] tagVectors;
+		public final double[] tagWeights;
+
+		public W2VQueryState(int[] tagIndices, float[][] tagVectors, double[] tagWeights) {
+			this.tagIndices = tagIndices;
+			this.tagVectors = tagVectors;
+			this.tagWeights = tagWeights;
+		}
+	}
+
+	public static W2VQueryState createW2VQueryState(WordsAndCounts wAC, Graph graph) {
+		WordVecSimilarity w2v = WordVecSimilarity.getInstance();
+		int[] tagIndices = new int[wAC.size];
+		float[][] tagVectors = new float[wAC.size][W2VSimilarity.DIM];
+		double[] tagWeights = new double[wAC.size];
+		for (int i = 0; i < wAC.size; i++) {
+			tagIndices[i] = w2v.indexOf(wAC.words[i]);
+			tagWeights[i] = graph.getNodeWeight(wAC.words[i]);
+			if (tagIndices[i] >= 0) {
+				w2v.readNormalizedRow(tagIndices[i], tagVectors[i]);
+			}
+		}
+		return new W2VQueryState(tagIndices, tagVectors, tagWeights);
+	}
+
+	public static int getCommitIndexBeforeDate(List<CommitRecord> commits, Date date) {
+		int lo = 0;
+		int hi = commits.size() - 1;
+		int idx = -1;
+		while (lo <= hi) {
+			int mid = (lo + hi) >>> 1;
+			if (commits.get(mid).date.compareTo(date) < 0) {
+				idx = mid;
+				lo = mid + 1;
+			} else {
+				hi = mid - 1;
+			}
+		}
+		return idx;
+	}
 	//------------------------------------------------------------------------------------------------------------------------
 	//The following method returns project type (one of the 13 main FASE projects, 3 other projects, project families or other (unknown)).
 	public static ProjectType projectType(String projectId, String owner_repo){
@@ -192,7 +235,8 @@ public class AlgPrep {
 			HashMap<String, HashMap<String, HashSet<Date>>> wordsAnd_theDevelopersUsedThemUpToNow_allUsageDates /*"java"--> <"bob", <2019/1/1, 2018/2/2, 2019/3/3, ...>>*/, 
 			BTOption2_w option2_w, BTOption4_IDF option4_IDF, BTOption5_prioritizePAs option5_prioritizePAs, BTOption8_recency option8_recency, 
 			int indentationLevel, 
-			TreeMap<String, ArrayList<AlgPrep.CommitRecord>> developerCommitIndex){
+			TreeMap<String, ArrayList<AlgPrep.CommitRecord>> developerCommitIndex,
+			W2VQueryState w2vQueryState){
 		//This method calculates the score of developer "login" for assignment "a". 
 		//		It considers the evidence of expertise from beginning of project until the time of "a". 
 		//			Later, it also considers the evidence in other projects (the project family experiment) using projectsAndTheirAssignments.
@@ -446,16 +490,24 @@ public class AlgPrep {
 				}
 				
 				if (!commitsBeforeBug.isEmpty()) {
-					int[] queryTagIndices = new int[wAC.size];
-					float[][] queryTagVectors = new float[wAC.size][W2VSimilarity.DIM];
-					double[] tagWeights = new double[wAC.size];
+					int[] queryTagIndices;
+					float[][] queryTagVectors;
+					double[] tagWeights;
 					double[] tagAggScores = new double[wAC.size];
-					for (int i = 0; i < wAC.size; i++) {
-						queryTagIndices[i] = w2v.indexOf(wAC.words[i]);
-						tagWeights[i] = graph.getNodeWeight(wAC.words[i]);
-						tagAggScores[i] = 0.0;
-						if (queryTagIndices[i] >= 0) {
-							w2v.readNormalizedRow(queryTagIndices[i], queryTagVectors[i]);
+					if (w2vQueryState != null) {
+						queryTagIndices = w2vQueryState.tagIndices;
+						queryTagVectors = w2vQueryState.tagVectors;
+						tagWeights = w2vQueryState.tagWeights;
+					} else {
+						queryTagIndices = new int[wAC.size];
+						queryTagVectors = new float[wAC.size][W2VSimilarity.DIM];
+						tagWeights = new double[wAC.size];
+						for (int i = 0; i < wAC.size; i++) {
+							queryTagIndices[i] = w2v.indexOf(wAC.words[i]);
+							tagWeights[i] = graph.getNodeWeight(wAC.words[i]);
+							if (queryTagIndices[i] >= 0) {
+								w2v.readNormalizedRow(queryTagIndices[i], queryTagVectors[i]);
+							}
 						}
 					}
 

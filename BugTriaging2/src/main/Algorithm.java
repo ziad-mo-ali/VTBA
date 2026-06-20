@@ -360,6 +360,11 @@ public class Algorithm {//test 9
 										}
 									}
 
+									W2VQueryState w2vQueryState = null;
+									if (generalExperimentType == GeneralExperimentType.COMMIT_WORD2VEC) {
+										w2vQueryState = AlgPrep.createW2VQueryState(wAC, graph);
+									}
+
 									//Calculating the word count for idf:
 									for (int k=0; k<community.size(); k++){
 										String login = community.get(k)[0];
@@ -375,7 +380,8 @@ public class Algorithm {//test 9
 														generalExperimentType, community.size(), wordsAnd_theDevelopersUsedThemUpToNow_lastUsageDate, wordsAnd_theDevelopersUsedThemUpToNow_allUsageDates, 
 														option2_w, option4_IDF, option5_prioritizePAs, option8_recency,
 														indentationLevel+5,
-														developerCommitIndex));
+														developerCommitIndex,
+														w2vQueryState));
 									}
 									//Adding this assignee to the set of assignees of this bug (will be used in measuring the accuracies):
 									HashMap<String, Integer> previousAssigneesOfThisBugAndTheirRanks;
