@@ -26,6 +26,8 @@ import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import main.Nd4jUtils;
+
 import data.Assignee;
 import data.Assignment;
 import data.AssignmentStat;
@@ -78,11 +80,13 @@ public class AlgPrep {
 		public final int[] tagIndices;
 		public final float[][] tagVectors;
 		public final double[] tagWeights;
+		public final Object tagMatrix;
 
-		public W2VQueryState(int[] tagIndices, float[][] tagVectors, double[] tagWeights) {
+		public W2VQueryState(int[] tagIndices, float[][] tagVectors, double[] tagWeights, Object tagMatrix) {
 			this.tagIndices = tagIndices;
 			this.tagVectors = tagVectors;
 			this.tagWeights = tagWeights;
+			this.tagMatrix = tagMatrix;
 		}
 	}
 
@@ -98,7 +102,8 @@ public class AlgPrep {
 				w2v.readNormalizedRow(tagIndices[i], tagVectors[i]);
 			}
 		}
-		return new W2VQueryState(tagIndices, tagVectors, tagWeights);
+		Object tagMatrix = Nd4jUtils.isAvailable() ? Nd4jUtils.create(tagVectors) : null;
+		return new W2VQueryState(tagIndices, tagVectors, tagWeights, tagMatrix);
 	}
 
 	public static int getCommitIndexBeforeDate(List<CommitRecord> commits, Date date) {
@@ -518,10 +523,21 @@ public class AlgPrep {
                         }
                     }
 
-                    // Now compute tag aggregated scores by dotting aggregated vector with each tag vector
+// Now compute tag aggregated scores using ND4J matrix-vector multiplication.
+                    Object aggregated = Nd4jUtils.isAvailable() ? Nd4jUtils.create(aggregatedVector, new long[] {W2VSimilarity.DIM, 1}) : null;
+                    Object sims = null;
+                    if (Nd4jUtils.isAvailable() && w2vQueryState != null && w2vQueryState.tagMatrix != null) {
+                        sims = Nd4jUtils.reshape(Nd4jUtils.mmul(w2vQueryState.tagMatrix, aggregated), new long[] {wAC.size});
+                    }
+
                     for (int i = 0; i < wAC.size; i++) {
                         if (queryTagIndices[i] < 0) continue;
-                        float sim = W2VSimilarity.dot(aggregatedVector, queryTagVectors[i]);
+                        float sim;
+                        if (Nd4jUtils.isAvailable() && sims != null) {
+                            sim = Nd4jUtils.getFloat(sims, i);
+                        } else {
+                            sim = W2VSimilarity.dot(aggregatedVector, queryTagVectors[i]);
+                        }
                         if (sim > 0.0f) {
                             tagAggScores[i] = sim;
                         } else {
