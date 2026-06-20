@@ -122,6 +122,66 @@ public class AlgPrep {
 		return idx;
 	}
 
+	public static class W2VDebugInfo implements Comparable<W2VDebugInfo> {
+		public final String login;
+		public final float aggregatedVectorNorm;
+		public final double score;
+		public final int commitsBeforeBugDate;
+
+		public W2VDebugInfo(String login, float aggregatedVectorNorm, double score, int commitsBeforeBugDate) {
+			this.login = login;
+			this.aggregatedVectorNorm = aggregatedVectorNorm;
+			this.score = score;
+			this.commitsBeforeBugDate = commitsBeforeBugDate;
+		}
+
+		@Override
+		public int compareTo(W2VDebugInfo other) {
+			return Double.compare(other.score, this.score);
+		}
+	}
+
+	public static ArrayList<W2VDebugInfo> computeW2VDebugInfoForBug(
+			ArrayList<String[]> community,
+			Assignment a,
+			TreeMap<String, ArrayList<CommitRecord>> developerCommitIndex,
+			HashMap<String, Double> scores) {
+		ArrayList<W2VDebugInfo> debugInfos = new ArrayList<>();
+		int dim = W2VSimilarity.DIM;
+		for (int devIndex = 0; devIndex < community.size(); devIndex++) {
+			String login = community.get(devIndex)[0];
+			float[] aggregatedVector = new float[dim];
+			for (int d = 0; d < dim; d++) {
+				aggregatedVector[d] = 0.0f;
+			}
+			int commitsBeforeBugDate = 0;
+			if (developerCommitIndex != null && developerCommitIndex.containsKey(login)) {
+				ArrayList<CommitRecord> commits = developerCommitIndex.get(login);
+				int lastCommitIndex = getCommitIndexBeforeDate(commits, a.date);
+				if (lastCommitIndex >= 0) {
+					for (int ci = 0; ci <= lastCommitIndex; ci++) {
+						CommitRecord cr = commits.get(ci);
+						float[] cv = cr.commitVector;
+						double recency = cr.recency;
+						for (int d = 0; d < dim; d++) {
+							aggregatedVector[d] += (float) (recency * cv[d]);
+						}
+					}
+					commitsBeforeBugDate = lastCommitIndex + 1;
+				}
+			}
+			float norm = 0.0f;
+			for (int d = 0; d < dim; d++) {
+				norm += aggregatedVector[d] * aggregatedVector[d];
+			}
+			norm = (float) Math.sqrt(norm);
+			double score = scores.containsKey(login) ? scores.get(login) : 0.0;
+			debugInfos.add(new W2VDebugInfo(login, norm, score, commitsBeforeBugDate));
+		}
+		Collections.sort(debugInfos);
+		return debugInfos;
+	}
+
 	public static void calculateScoresForBugAssignmentCommitWord2Vec(
 				ArrayList<String[]> community,
 				Assignment a,

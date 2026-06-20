@@ -377,6 +377,23 @@ public class Algorithm {//test 9
 											developerCommitIndex,
 											w2vQueryState,
 											scores);
+										if (project.owner_repo.equals("saltstack/salt") && numberOfBugsProcessed == 0) {
+											ArrayList<AlgPrep.W2VDebugInfo> debugInfos = AlgPrep.computeW2VDebugInfoForBug(
+												community,
+												a,
+												developerCommitIndex,
+												scores);
+											MyUtils.println("DEBUG: Top 10 developer W2V scores for first saltstack/salt bug:", indentationLevel+5);
+											MyUtils.println("DEBUG: login\tvectorNorm\tscore\tcommitsBeforeBugDate", indentationLevel+5);
+											for (int di = 0; di < Math.min(10, debugInfos.size()); di++) {
+												AlgPrep.W2VDebugInfo info = debugInfos.get(di);
+												MyUtils.println(String.format("DEBUG: %s\t%.6f\t%.6f\t%d",
+													info.login,
+													info.aggregatedVectorNorm,
+													info.score,
+													info.commitsBeforeBugDate), indentationLevel+5);
+											}
+										}
 									} else {
 										for (int k = 0; k < community.size(); k++) {
 											String login = community.get(k)[0];
