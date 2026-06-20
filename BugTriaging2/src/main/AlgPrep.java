@@ -51,10 +51,6 @@ import utils.FileManipulationResult;
 import utils.Graph;
 import utils.MyUtils;
 import utils.StringManipulations;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ForkJoinPool;
-import java.util.stream.IntStream;
-import java.util.Arrays;
 
 public class AlgPrep {
 	//------------------------------------------------------------------------------------------------------------------------
@@ -161,41 +157,32 @@ public class AlgPrep {
 		boolean useBatchNd4j = Nd4jUtils.isAvailable() && w2vQueryState != null && w2vQueryState.tagMatrix != null && devCount > 0;
 		float[][] aggregatedVectors = new float[devCount][dim];
 		boolean[] hasAggregated = new boolean[devCount];
-		// Use a concurrent map for thread-safe score updates during parallel aggregation
-		ConcurrentHashMap<String, Double> concurrentScores = new ConcurrentHashMap<>();
-		int parallelism = Math.min(devCount, Math.max(1, Runtime.getRuntime().availableProcessors()));
-		ForkJoinPool fjp = new ForkJoinPool(parallelism);
-		try {
-			fjp.submit(() -> IntStream.range(0, devCount).parallel().forEach(devIndex -> {
-				String login = community.get(devIndex)[0];
-				double baseScore = 0.0;
-				if (option5_prioritizePAs == BTOption5_prioritizePAs.PRIORITY_FOR_PREVIOUS_ASSIGNEES
-						&& previousAssigneesInThisProject.contains(login)) {
-					baseScore = 10000.0;
-				}
-				concurrentScores.put(login, baseScore);
-				if (developerCommitIndex != null && developerCommitIndex.containsKey(login)) {
-					ArrayList<CommitRecord> commits = developerCommitIndex.get(login);
-					int lastCommitIndex = getCommitIndexBeforeDate(commits, a.date);
-					if (lastCommitIndex >= 0) {
-						hasAggregated[devIndex] = true;
-						float[] agg = aggregatedVectors[devIndex];
-						Arrays.fill(agg, 0.0f);
-						for (int ci = 0; ci <= lastCommitIndex; ci++) {
-							CommitRecord cr = commits.get(ci);
-							float[] cv = cr.commitVector;
-							double recency = cr.recency;
-							for (int d = 0; d < dim; d++) {
-								agg[d] += (float) (recency * cv[d]);
-							}
+		for (int devIndex = 0; devIndex < devCount; devIndex++) {
+			String login = community.get(devIndex)[0];
+			double baseScore = 0.0;
+			if (option5_prioritizePAs == BTOption5_prioritizePAs.PRIORITY_FOR_PREVIOUS_ASSIGNEES
+					&& previousAssigneesInThisProject.contains(login)) {
+				baseScore = 10000.0;
+			}
+			scores.put(login, baseScore);
+			if (developerCommitIndex != null && developerCommitIndex.containsKey(login)) {
+				ArrayList<CommitRecord> commits = developerCommitIndex.get(login);
+				int lastCommitIndex = getCommitIndexBeforeDate(commits, a.date);
+				if (lastCommitIndex >= 0) {
+					hasAggregated[devIndex] = true;
+					for (int d = 0; d < dim; d++) {
+						aggregatedVectors[devIndex][d] = 0.0f;
+					}
+					for (int ci = 0; ci <= lastCommitIndex; ci++) {
+						CommitRecord cr = commits.get(ci);
+						float[] cv = cr.commitVector;
+						double recency = cr.recency;
+						for (int d = 0; d < dim; d++) {
+							aggregatedVectors[devIndex][d] += (float) (recency * cv[d]);
 						}
 					}
 				}
-			})).get();
-		} catch (Exception e) {
-			throw new RuntimeException(e);
-		} finally {
-			fjp.shutdown();
+			}
 		}
 
 		Object simsAll = null;
@@ -213,9 +200,9 @@ public class AlgPrep {
 
 		for (int devIndex = 0; devIndex < devCount; devIndex++) {
 			String login = community.get(devIndex)[0];
-			double score = concurrentScores.get(login);
+			double score = scores.get(login);
 			if (!hasAggregated[devIndex]) {
-				concurrentScores.put(login, score);
+				scores.put(login, score);
 				continue;
 			}
 
@@ -236,12 +223,8 @@ public class AlgPrep {
 					}
 				}
 			}
-			concurrentScores.put(login, score);
+			scores.put(login, score);
 		}
-
-		// copy concurrent results back to the provided scores map
-		scores.clear();
-		scores.putAll(concurrentScores);
 	}
 	//------------------------------------------------------------------------------------------------------------------------
 	//The following method returns project type (one of the 13 main FASE projects, 3 other projects, project families or other (unknown)).
