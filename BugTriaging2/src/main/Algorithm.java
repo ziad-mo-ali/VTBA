@@ -271,8 +271,26 @@ public class Algorithm {//test 9
 					TreeMap<String, ArrayList<AssignmentStat>> projectsAndTheirAssignmentStats = new TreeMap<String, ArrayList<AssignmentStat>>();
 					TreeMap<String, String> projectNamesAndTheirIds_orderedByName = new TreeMap<String, String>(String.CASE_INSENSITIVE_ORDER);
 					int projectCounter = 1;
-					Random random = new Random();			
+					Random random = new Random();
 					TreeMap<String, ArrayList<String[]>> projectsAndTheirAssignments = projectsAndTheirAssignments__AL_forDifferentAssignmetTypes.get(i);
+					HashSet<String> w2vDebugBugIds = new HashSet<String>();
+						if (generalExperimentType == GeneralExperimentType.COMMIT_WORD2VEC) {
+						ArrayList<String> allW2VBugIds = new ArrayList<String>();
+						for (String debugProjectId : projectsAndTheirAssignments.keySet()) {
+							ArrayList<String[]> assignmentsOfThisProject = projectsAndTheirAssignments.get(debugProjectId);
+							for (int aj = 0; aj < assignmentsOfThisProject.size(); aj++) {
+								Assignment a = new Assignment(assignmentsOfThisProject, aj, indentationLevel+5);
+								allW2VBugIds.add(debugProjectId + ":" + a.bugNumber);
+							}
+						}
+						if (allW2VBugIds.size() <= 5) {
+							w2vDebugBugIds.addAll(allW2VBugIds);
+						} else {
+							while (w2vDebugBugIds.size() < 5) {
+								w2vDebugBugIds.add(allW2VBugIds.get(random.nextInt(allW2VBugIds.size())));
+							}
+						}
+					}
 					for (String projectId: projectsAndTheirAssignments.keySet()){
 						//Considering assignments of one project:
 						Project project = new Project(projects, projectId, indentationLevel+4, localFMR);
@@ -377,13 +395,14 @@ public class Algorithm {//test 9
 											developerCommitIndex,
 											w2vQueryState,
 											scores);
-										if (project.owner_repo.equals("saltstack/salt") && numberOfBugsProcessed == 0) {
+											String currentBugKey = projectId + ":" + a.bugNumber;
+											if (w2vDebugBugIds.contains(currentBugKey)) {
 											ArrayList<AlgPrep.W2VDebugInfo> debugInfos = AlgPrep.computeW2VDebugInfoForBug(
 												community,
 												a,
 												developerCommitIndex,
 												scores);
-											MyUtils.println("DEBUG: Top 10 developer W2V scores for first saltstack/salt bug:", indentationLevel+5);
+											MyUtils.println(String.format("DEBUG: Top 10 developer W2V scores for bug %s in project %s:", a.bugNumber, project.owner_repo), indentationLevel+5);
 											MyUtils.println("DEBUG: login\tvectorNorm\tscore\tcommitsBeforeBugDate", indentationLevel+5);
 											for (int di = 0; di < Math.min(10, debugInfos.size()); di++) {
 												AlgPrep.W2VDebugInfo info = debugInfos.get(di);
