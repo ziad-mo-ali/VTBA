@@ -48,6 +48,10 @@ public class WordVecSimilarity {
         index.readRow(rowIndex, dest);
     }
 
+    public void readNormalizedRow(int rowIndex, float[] dest) {
+        index.readNormalizedRow(rowIndex, dest);
+    }
+
     public float similarity(int tokenIndex, int tagIndex) {
         return index.similarity(tokenIndex, tagIndex);
     }
