@@ -360,7 +360,7 @@ public class Algorithm {//test 9
 										}
 									}
 
-									W2VQueryState w2vQueryState = null;
+									AlgPrep.W2VQueryState w2vQueryState = null;
 									if (generalExperimentType == GeneralExperimentType.COMMIT_WORD2VEC) {
 										w2vQueryState = AlgPrep.createW2VQueryState(wAC, graph);
 									}
