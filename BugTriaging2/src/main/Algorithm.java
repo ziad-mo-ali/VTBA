@@ -366,23 +366,36 @@ public class Algorithm {//test 9
 									}
 
 									//Calculating the word count for idf:
-									for (int k=0; k<community.size(); k++){
-										String login = community.get(k)[0];
-										scores.put(login, 
+									if (generalExperimentType == GeneralExperimentType.COMMIT_WORD2VEC) {
+										AlgPrep.calculateScoresForBugAssignmentCommitWord2Vec(
+											community,
+											a,
+											graph,
+											previousAssigneesInThisProject,
+											wAC,
+											option5_prioritizePAs,
+											developerCommitIndex,
+											w2vQueryState,
+											scores);
+									} else {
+										for (int k = 0; k < community.size(); k++) {
+											String login = community.get(k)[0];
+											scores.put(login, 
 												AlgPrep.calculateScoreOfDeveloperForBugAssignment(
-														login, a, graph, updatingGraph, 
-														i, evidenceTypesToConsider, evidenceTypesToConsider_count, 
-														logins_Tags_TypesAndTheirEvidence, 
-														previousAssigneesInThisProject, 
-														wAC, originalNumberOfWordsInBugText, 
-														j+1, 
-														project.overalStartingDate, 
-														generalExperimentType, community.size(), wordsAnd_theDevelopersUsedThemUpToNow_lastUsageDate, wordsAnd_theDevelopersUsedThemUpToNow_allUsageDates, 
-														option2_w, option4_IDF, option5_prioritizePAs, option8_recency,
-														indentationLevel+5,
-														developerCommitIndex,
-														w2vQueryState));
+													login, a, graph, updatingGraph, 
+													i, evidenceTypesToConsider, evidenceTypesToConsider_count, 
+													logins_Tags_TypesAndTheirEvidence, 
+													previousAssigneesInThisProject, 
+													wAC, originalNumberOfWordsInBugText, 
+													j+1, 
+													project.overalStartingDate, 
+													generalExperimentType, community.size(), wordsAnd_theDevelopersUsedThemUpToNow_lastUsageDate, wordsAnd_theDevelopersUsedThemUpToNow_allUsageDates, 
+													option2_w, option4_IDF, option5_prioritizePAs, option8_recency,
+													indentationLevel+5,
+													developerCommitIndex,
+													w2vQueryState));
 									}
+								}
 									//Adding this assignee to the set of assignees of this bug (will be used in measuring the accuracies):
 									HashMap<String, Integer> previousAssigneesOfThisBugAndTheirRanks;
 									if(realAssignees.containsKey(a.bugNumber)){//: in this case, we don't need to create a HashMap<String, Integer> as previousAssigneesOfThisBugAndTheirRanks. Just retrieve it and add the current assignee to its end, and it will be updated in the hashMap:

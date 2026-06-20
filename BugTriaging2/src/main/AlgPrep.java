@@ -121,6 +121,111 @@ public class AlgPrep {
 		}
 		return idx;
 	}
+
+	public static void calculateScoresForBugAssignmentCommitWord2Vec(
+				ArrayList<String[]> community,
+				Assignment a,
+				Graph graph,
+				HashSet<String> previousAssigneesInThisProject,
+				WordsAndCounts wAC,
+				BTOption5_prioritizePAs option5_prioritizePAs,
+				TreeMap<String, ArrayList<CommitRecord>> developerCommitIndex,
+				W2VQueryState w2vQueryState,
+				HashMap<String, Double> scores) {
+		WordVecSimilarity w2v = WordVecSimilarity.getInstance();
+		int devCount = community.size();
+		int dim = W2VSimilarity.DIM;
+		int[] queryTagIndices = new int[wAC.size];
+		float[][] queryTagVectors = new float[wAC.size][dim];
+		double[] tagWeights = new double[wAC.size];
+		if (w2vQueryState != null) {
+			System.arraycopy(w2vQueryState.tagIndices, 0, queryTagIndices, 0, wAC.size);
+			for (int i = 0; i < wAC.size; i++) {
+				queryTagVectors[i] = w2vQueryState.tagVectors[i];
+				tagWeights[i] = w2vQueryState.tagWeights[i];
+			}
+		} else {
+			for (int i = 0; i < wAC.size; i++) {
+				queryTagIndices[i] = w2v.indexOf(wAC.words[i]);
+				tagWeights[i] = graph.getNodeWeight(wAC.words[i]);
+				if (queryTagIndices[i] >= 0) {
+					w2v.readNormalizedRow(queryTagIndices[i], queryTagVectors[i]);
+				}
+			}
+		}
+
+		boolean useBatchNd4j = Nd4jUtils.isAvailable() && w2vQueryState != null && w2vQueryState.tagMatrix != null && devCount > 0;
+		float[][] aggregatedVectors = new float[devCount][dim];
+		boolean[] hasAggregated = new boolean[devCount];
+		for (int devIndex = 0; devIndex < devCount; devIndex++) {
+			String login = community.get(devIndex)[0];
+			double baseScore = 0.0;
+			if (option5_prioritizePAs == BTOption5_prioritizePAs.PRIORITY_FOR_PREVIOUS_ASSIGNEES
+					&& previousAssigneesInThisProject.contains(login)) {
+				baseScore = 10000.0;
+			}
+			scores.put(login, baseScore);
+			if (developerCommitIndex != null && developerCommitIndex.containsKey(login)) {
+				ArrayList<CommitRecord> commits = developerCommitIndex.get(login);
+				int lastCommitIndex = getCommitIndexBeforeDate(commits, a.date);
+				if (lastCommitIndex >= 0) {
+					hasAggregated[devIndex] = true;
+					for (int d = 0; d < dim; d++) {
+						aggregatedVectors[devIndex][d] = 0.0f;
+					}
+					for (int ci = 0; ci <= lastCommitIndex; ci++) {
+						CommitRecord cr = commits.get(ci);
+						float[] cv = cr.commitVector;
+						double recency = cr.recency;
+						for (int d = 0; d < dim; d++) {
+							aggregatedVectors[devIndex][d] += (float) (recency * cv[d]);
+						}
+					}
+				}
+			}
+		}
+
+		Object simsAll = null;
+		if (useBatchNd4j) {
+			float[][] aggregatedMatrix = new float[dim][devCount];
+			for (int devIndex = 0; devIndex < devCount; devIndex++) {
+				for (int d = 0; d < dim; d++) {
+					aggregatedMatrix[d][devIndex] = aggregatedVectors[devIndex][d];
+				}
+			}
+			Object aggregatedNd4j = Nd4jUtils.create(aggregatedMatrix);
+			Object product = Nd4jUtils.mmul(w2vQueryState.tagMatrix, aggregatedNd4j);
+			simsAll = Nd4jUtils.reshape(product, new long[] {wAC.size * devCount});
+		}
+
+		for (int devIndex = 0; devIndex < devCount; devIndex++) {
+			String login = community.get(devIndex)[0];
+			double score = scores.get(login);
+			if (!hasAggregated[devIndex]) {
+				scores.put(login, score);
+				continue;
+			}
+
+			if (useBatchNd4j && simsAll != null) {
+				for (int i = 0; i < wAC.size; i++) {
+					float sim = Nd4jUtils.getFloat(simsAll, i * devCount + devIndex);
+					if (sim > 0.0f) {
+						score += wAC.counts[i] * tagWeights[i] * sim;
+					}
+				}
+			} else {
+				for (int i = 0; i < wAC.size; i++) {
+					if (queryTagIndices[i] < 0)
+						continue;
+					float sim = W2VSimilarity.dot(aggregatedVectors[devIndex], queryTagVectors[i]);
+					if (sim > 0.0f) {
+						score += wAC.counts[i] * tagWeights[i] * sim;
+					}
+				}
+			}
+			scores.put(login, score);
+		}
+	}
 	//------------------------------------------------------------------------------------------------------------------------
 	//The following method returns project type (one of the 13 main FASE projects, 3 other projects, project families or other (unknown)).
 	public static ProjectType projectType(String projectId, String owner_repo){
