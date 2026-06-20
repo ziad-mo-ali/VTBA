@@ -482,14 +482,9 @@ public class AlgPrep {
 				ArrayList<AlgPrep.CommitRecord> commits = developerCommitIndex.get(login);
 				WordVecSimilarity w2v = WordVecSimilarity.getInstance();
 				
-				// Filter commits before bug date
-				List<AlgPrep.CommitRecord> commitsBeforeBug = new ArrayList<>();
-				for (AlgPrep.CommitRecord cr : commits) {
-					if (cr.date.compareTo(a.date) < 0)
-						commitsBeforeBug.add(cr);
-				}
-				
-				if (!commitsBeforeBug.isEmpty()) {
+				// Find index of last commit before bug date (commits are sorted)
+				int lastCommitIndex = getCommitIndexBeforeDate(commits, a.date);
+				if (lastCommitIndex >= 0) {
 					int[] queryTagIndices;
 					float[][] queryTagVectors;
 					double[] tagWeights;
@@ -511,19 +506,27 @@ public class AlgPrep {
 						}
 					}
 
-					for (AlgPrep.CommitRecord cr : commitsBeforeBug) {
-						double recency = cr.recency;
-						for (int i = 0; i < wAC.size; i++) {
-							if (queryTagIndices[i] < 0) continue;
-							float sim = W2VSimilarity.dot(cr.commitVector, queryTagVectors[i]);
-							if (sim > 0.0f) {
-								tagAggScores[i] += sim * recency;
-							}
-						}
-					}
+// Build a recency-weighted aggregated commit vector for this developer up to lastCommitIndex
+                    float[] aggregatedVector = new float[W2VSimilarity.DIM];
+                    for (int d = 0; d < W2VSimilarity.DIM; d++) aggregatedVector[d] = 0.0f;
+                    for (int ci = 0; ci <= lastCommitIndex; ci++) {
+                        AlgPrep.CommitRecord cr = commits.get(ci);
+                        double recency = cr.recency;
+                        float[] cv = cr.commitVector;
+                        for (int d = 0; d < W2VSimilarity.DIM; d++) {
+                            aggregatedVector[d] += (float)(recency * cv[d]);
+                        }
+                    }
 
-					for (int i = 0; i < wAC.size; i++) {
-						if (queryTagIndices[i] < 0) continue;
+                    // Now compute tag aggregated scores by dotting aggregated vector with each tag vector
+                    for (int i = 0; i < wAC.size; i++) {
+                        if (queryTagIndices[i] < 0) continue;
+                        float sim = W2VSimilarity.dot(aggregatedVector, queryTagVectors[i]);
+                        if (sim > 0.0f) {
+                            tagAggScores[i] = sim;
+                        } else {
+                            tagAggScores[i] = 0.0;
+                        }
 						score += wAC.counts[i] * tagWeights[i] * tagAggScores[i];
 					}
 
