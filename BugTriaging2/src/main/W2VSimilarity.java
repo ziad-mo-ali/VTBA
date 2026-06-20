@@ -89,6 +89,21 @@ public final class W2VSimilarity {
         System.arraycopy(allVectors, srcOffset, dest, 0, DIM);
     }
 
+    public void readNormalizedRow(int rowIndex, float[] dest) {
+        readRow(rowIndex, dest);
+        float norm = 0f;
+        for (int k = 0; k < DIM; k++) {
+            norm += dest[k] * dest[k];
+        }
+        if (norm == 0f) {
+            return;
+        }
+        float invNorm = 1f / (float) Math.sqrt(norm);
+        for (int k = 0; k < DIM; k++) {
+            dest[k] *= invNorm;
+        }
+    }
+
     private static Map<String, Integer> parseVocabJson(String json) {
         Map<String, Integer> result = new HashMap<>();
         String trimmed = json.trim();
@@ -243,5 +258,33 @@ public final class W2VSimilarity {
             sum += vector[k] * allVectors[off2 + k];
         }
         return sum;
+    }
+
+    public static float dot(float[] a, float[] b) {
+        if (a.length != DIM || b.length != DIM) {
+            throw new IllegalArgumentException("vector length must be " + DIM);
+        }
+        float sum = 0f;
+        for (int k = 0; k < DIM; k++) {
+            sum += a[k] * b[k];
+        }
+        return sum;
+    }
+
+    public float dotNormalized(float[] vector, int rowIndex) {
+        if (vector.length != DIM) {
+            throw new IllegalArgumentException("vector length must be " + DIM);
+        }
+        int off2 = rowIndex * DIM;
+        float sum = 0f;
+        float norm = 0f;
+        for (int k = 0; k < DIM; k++) {
+            sum += vector[k] * allVectors[off2 + k];
+            norm += vector[k] * vector[k];
+        }
+        if (norm == 0f) {
+            return 0f;
+        }
+        return sum / (float) Math.sqrt(norm);
     }
 }

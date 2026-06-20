@@ -63,12 +63,14 @@ public class AlgPrep {
 		public String user;
 		public Date date;
         public float[] commitVector;
+        public double recency;
 
         public CommitRecord(String sha, String user, Date date, float[] commitVector) {
             this.sha = sha;
             this.user = user;
             this.date = date;
             this.commitVector = commitVector;
+            this.recency = 1.0;
         }
 	}
 	//------------------------------------------------------------------------------------------------------------------------
@@ -444,36 +446,35 @@ public class AlgPrep {
 				}
 				
 				if (!commitsBeforeBug.isEmpty()) {
-					// avg_commits_per_period(d)
-					Date earliestDate = commitsBeforeBug.get(0).date; // list is sorted ascending
-					int periodDays = MyUtils.getDifferenceInDays(a.date, earliestDate);
-					double avgCommitsPerPeriod = commitsBeforeBug.size() / (double) Math.max(1, periodDays);
-					if (avgCommitsPerPeriod == 0.0) avgCommitsPerPeriod = 1.0;
-					
 					int[] queryTagIndices = new int[wAC.size];
+					float[][] queryTagVectors = new float[wAC.size][W2VSimilarity.DIM];
+					double[] tagWeights = new double[wAC.size];
+					double[] tagAggScores = new double[wAC.size];
 					for (int i = 0; i < wAC.size; i++) {
 						queryTagIndices[i] = w2v.indexOf(wAC.words[i]);
+						tagWeights[i] = graph.getNodeWeight(wAC.words[i]);
+						tagAggScores[i] = 0.0;
+						if (queryTagIndices[i] >= 0) {
+							w2v.readNormalizedRow(queryTagIndices[i], queryTagVectors[i]);
+						}
 					}
-					
-					for (int i = 0; i < wAC.size; i++) {
-						int tagIndex = queryTagIndices[i];
-						if (tagIndex < 0) continue;
-						String tag = wAC.words[i];
-						double termWeight = graph.getNodeWeight(tag);
-						double tagAggScore = 0.0;
-						
-						for (int j = 0; j < commitsBeforeBug.size(); j++) {
-							AlgPrep.CommitRecord cr = commitsBeforeBug.get(j);
-							int commitsAfter = commitsBeforeBug.size() - 1 - j;
-							double recency = 1.0 / (1.0 + commitsAfter / avgCommitsPerPeriod);
-							float sim = w2v.dot(cr.commitVector, tagIndex);
+
+					for (AlgPrep.CommitRecord cr : commitsBeforeBug) {
+						double recency = cr.recency;
+						for (int i = 0; i < wAC.size; i++) {
+							if (queryTagIndices[i] < 0) continue;
+							float sim = W2VSimilarity.dot(cr.commitVector, queryTagVectors[i]);
 							if (sim > 0.0f) {
-								tagAggScore += sim * recency;
+								tagAggScores[i] += sim * recency;
 							}
 						}
-						score += wAC.counts[i] * termWeight * tagAggScore;
 					}
-					
+
+					for (int i = 0; i < wAC.size; i++) {
+						if (queryTagIndices[i] < 0) continue;
+						score += wAC.counts[i] * tagWeights[i] * tagAggScores[i];
+					}
+
 					if (option5_prioritizePAs == BTOption5_prioritizePAs.PRIORITY_FOR_PREVIOUS_ASSIGNEES)
 						if (previousAssigneesInThisProject.contains(login))
 							score += 10000;
@@ -1370,23 +1371,35 @@ public class AlgPrep {
 				float[] commitVector = new float[W2VSimilarity.DIM];
 				float[] tokenVec = new float[W2VSimilarity.DIM];
 				long simStart = 0;
+				int inVocabTokenCount = 0;
 
 				for (String token : uniqueTokens) {
 					int tokenIndex = w2v.indexOf(token);
 					if (tokenIndex < 0) continue;
+					int freq = tokenFreqs.getOrDefault(token, 1);
 					if (simStart == 0) {
 						simStart = System.currentTimeMillis();
 					}
-					int freq = tokenFreqs.getOrDefault(token, 1);
 					w2v.readRow(tokenIndex, tokenVec);
 					for (int k = 0; k < W2VSimilarity.DIM; k++) {
 						commitVector[k] += tokenVec[k] * freq;
 					}
+					inVocabTokenCount += freq;
 				}
 
-				if (simStart != 0 && totalTokenCount > 0) {
+				if (simStart != 0 && inVocabTokenCount > 0) {
 					for (int k = 0; k < W2VSimilarity.DIM; k++) {
-						commitVector[k] /= totalTokenCount;
+						commitVector[k] /= inVocabTokenCount;
+					}
+					float norm = 0f;
+					for (int k = 0; k < W2VSimilarity.DIM; k++) {
+						norm += commitVector[k] * commitVector[k];
+					}
+					if (norm > 0f) {
+						float invNorm = 1f / (float) Math.sqrt(norm);
+						for (int k = 0; k < W2VSimilarity.DIM; k++) {
+							commitVector[k] *= invNorm;
+						}
 					}
 					long simElapsed = System.currentTimeMillis() - simStart;
 					diffsProcessed++;
@@ -1395,15 +1408,35 @@ public class AlgPrep {
 					}
 				}
 
-				CommitRecord cr = new CommitRecord(commitSHA, developer, parsedDate, commitVector);
-				developerCommitIndex.computeIfAbsent(developer, k -> new ArrayList<>()).add(cr);
+				if (inVocabTokenCount > 0) {
+					CommitRecord cr = new CommitRecord(commitSHA, developer, parsedDate, commitVector);
+					developerCommitIndex.computeIfAbsent(developer, k -> new ArrayList<>()).add(cr);
+				}
 			}
 
-			// Sort each developer's commits by date ascending
-			MyUtils.println("Finished reading commit diffs. Now sorting " + developerCommitIndex.size() + " developers' commits...", indentationLevel);
-			int devCount = 0;
-			for (String dev : developerCommitIndex.keySet()) {
-				developerCommitIndex.get(dev).sort(Comparator.comparing(cr -> cr.date));
+// Sort each developer's commits by date ascending and precompute recency weights.
+		MyUtils.println("Finished reading commit diffs. Now sorting " + developerCommitIndex.size() + " developers' commits...", indentationLevel);
+		int devCount = 0;
+		for (String dev : developerCommitIndex.keySet()) {
+			ArrayList<CommitRecord> commits = developerCommitIndex.get(dev);
+			commits.sort(Comparator.comparing(cr -> cr.date));
+
+			if (!commits.isEmpty()) {
+				Date first = commits.get(0).date;
+				Date last = commits.get(commits.size() - 1).date;
+				int periodDays = MyUtils.getDifferenceInDays(last, first);
+				double avgCommitsPerPeriod = commits.size() / (double) Math.max(1, periodDays);
+				if (avgCommitsPerPeriod == 0.0) {
+					avgCommitsPerPeriod = 1.0;
+				}
+
+				for (int j = 0; j < commits.size(); j++) {
+					CommitRecord cr = commits.get(j);
+					int commitsAfter = commits.size() - 1 - j;
+					cr.recency = 1.0 / (1.0 + commitsAfter / avgCommitsPerPeriod);
+				}
+			}
+
 				devCount++;
 				if (devCount % 100 == 0) {
 					MyUtils.println("  Sorted " + devCount + " / " + developerCommitIndex.size() + " developers", indentationLevel + 1);
