@@ -1596,8 +1596,10 @@ public class AlgPrep {
 				}
 			}
 
-// Sort each developer's commits by date ascending and precompute recency weights.
+// Sort each developer's commits by date ascending.
 		MyUtils.println("Finished reading commit diffs. Now sorting " + developerCommitIndex.size() + " developers' commits...", indentationLevel);
+		Date projectFirst = null;
+		Date projectLast = null;
 		int devCount = 0;
 		for (String dev : developerCommitIndex.keySet()) {
 			ArrayList<CommitRecord> commits = developerCommitIndex.get(dev);
@@ -1606,8 +1608,30 @@ public class AlgPrep {
 			if (!commits.isEmpty()) {
 				Date first = commits.get(0).date;
 				Date last = commits.get(commits.size() - 1).date;
-				int periodDays = MyUtils.getDifferenceInDays(last, first);
-				double avgCommitsPerPeriod = commits.size() / (double) Math.max(1, periodDays);
+				if (projectFirst == null || first.before(projectFirst)) {
+					projectFirst = first;
+				}
+				if (projectLast == null || last.after(projectLast)) {
+					projectLast = last;
+				}
+			}
+
+			devCount++;
+			if (devCount % 100 == 0) {
+				MyUtils.println("  Sorted " + devCount + " / " + developerCommitIndex.size() + " developers", indentationLevel + 1);
+			}
+		}
+
+		int projectPeriodDays = 0;
+		if (projectFirst != null && projectLast != null) {
+			projectPeriodDays = MyUtils.getDifferenceInDays(projectLast, projectFirst);
+		}
+		projectPeriodDays = Math.max(1, projectPeriodDays);
+
+		for (String dev : developerCommitIndex.keySet()) {
+			ArrayList<CommitRecord> commits = developerCommitIndex.get(dev);
+			if (!commits.isEmpty()) {
+				double avgCommitsPerPeriod = commits.size() / (double) projectPeriodDays;
 				if (avgCommitsPerPeriod == 0.0) {
 					avgCommitsPerPeriod = 1.0;
 				}
@@ -1617,11 +1641,6 @@ public class AlgPrep {
 					int commitsAfter = commits.size() - 1 - j;
 					cr.recency = 1.0 / (1.0 + commitsAfter / avgCommitsPerPeriod);
 				}
-			}
-
-				devCount++;
-				if (devCount % 100 == 0) {
-					MyUtils.println("  Sorted " + devCount + " / " + developerCommitIndex.size() + " developers", indentationLevel + 1);
 				}
 			}
 
