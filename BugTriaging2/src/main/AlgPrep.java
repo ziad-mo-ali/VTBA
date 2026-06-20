@@ -792,8 +792,9 @@ public class AlgPrep {
 								+ TAB + nOCM + TAB + "" + TAB + "" + TAB + "" + TAB + "" + TAB + "";
 					}
 					else{
-						MyUtils.println("Error! The first time you are running the program you should select \"isMainRun\"=true. Please delete everything in the output folder and re-run the code with that option to create the titles. Then you can set that option to 'false' and run the code again.", indentationLevel+1);
-						fMR.errors++;
+						int nOCM = projectsAndTheirCommunities.containsKey(projectId) ? projectsAndTheirCommunities.get(projectId).size() : 0;
+						overalTitle = overalTitle + "project:"+ TAB + owner_repo + TAB + projectId + TAB + "#ofAssignments:" + TAB + 0 + TAB + "#ofCommunityMembers:" 
+							+ TAB + nOCM + TAB + "" + TAB + "" + TAB + "" + TAB + "" + TAB + "" + TAB + "" + TAB + "";
 					}
 				}			
 				overalTitle = overalTitle + "\n";
