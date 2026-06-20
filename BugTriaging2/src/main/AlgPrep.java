@@ -570,7 +570,11 @@ public class AlgPrep {
 		try {
 			//Detailed stats:
 			MyUtils.println(writeMessageStep+"-1- Detailed stats (in 5 files in a separate folder) ...", indentationLevel+1);
-			FileWriter writer1 = new FileWriter(outputPath+"\\"+assignmentResultsOveralFolderName+"\\"+detailedAssignmentResultsSubfolderName+"\\"+detailedAssignmentResultsSubfolderName+" - "+detailedSummaryOutputFileNameSuffix+".tsv");
+			File detailedStatsFolder = new File(new File(outputPath, assignmentResultsOveralFolderName), detailedAssignmentResultsSubfolderName);
+			if (!detailedStatsFolder.exists())
+				detailedStatsFolder.mkdirs();
+			File detailedStatsFile = new File(detailedStatsFolder, detailedAssignmentResultsSubfolderName+" - "+detailedSummaryOutputFileNameSuffix+".tsv");
+			FileWriter writer1 = new FileWriter(detailedStatsFile);
 			writer1.append("project" + TAB + "bugNumber" + TAB + "assignmentDate" + TAB + "ourTopRecommendedRealAssignee" 
 					+ TAB + "ourTopRecommendedRealAssigneeRank" + TAB + "totalCommunityMembers" + TAB + "realAssigneesTillNow" + "\n");
 			int totalNOA = 0; //: total number of assignments.
@@ -685,13 +689,13 @@ public class AlgPrep {
 			
 			//Overal stats:
 			MyUtils.println(writeMessageStep+"-2- Overal stats (in 5 files in the main output folder) ...", indentationLevel+1);
-			String outputFileName2_overalStat = outputPath+"\\"+overalSummariesOutputTSVFileName+" - "+detailedSummaryOutputFileNameSuffix+".tsv";
-			File file2 = new File(outputFileName2_overalStat);
+			File outputFile2 = new File(outputPath, overalSummariesOutputTSVFileName+" - "+detailedSummaryOutputFileNameSuffix+".tsv");
+			File file2 = outputFile2;
 			boolean needToWriteHeader2 = true;
 			if (file2.exists())
 				needToWriteHeader2 = false;
 			//Writer for overall stats (one separate file for each assignment type):
-			FileWriter writer2 = new FileWriter(outputFileName2_overalStat, true);
+			FileWriter writer2 = new FileWriter(outputFile2, true);
 			//Title line(s):
 			String overalTitle;
 			if (needToWriteHeader2){
@@ -771,13 +775,13 @@ public class AlgPrep {
 
 			//Writer for overall stats (for all assignment types in a single file):
 			MyUtils.println(writeMessageStep+"-2- Summary overal stats (in one file in the main output folder) ...", indentationLevel+1);
-			String outputFileName3_overalStat = outputPath+"\\"+overalSummariesOutputTSVFileName+" - ALL_ASSIGNED_TYPES.tsv";
-			File file3 = new File(outputFileName3_overalStat);
+			File outputFile3 = new File(outputPath, overalSummariesOutputTSVFileName+" - ALL_ASSIGNED_TYPES.tsv");
+			File file3 = outputFile3;
 			boolean needToWriteHeader3 = true;
 			if (file3.exists())
 				needToWriteHeader3 = false;
 			//Writer for overall stats (one separate file for each assignment type):
-			FileWriter writer3 = new FileWriter(outputFileName3_overalStat, true);
+			FileWriter writer3 = new FileWriter(outputFile3, true);
 			//Title line(s):
 			if (needToWriteHeader3){//
 				//First line of the two line title:
@@ -1226,7 +1230,8 @@ public class AlgPrep {
 		else
 			mainOrTest = "3t";
 		String outputFolderName = Integer.toString(maxFolderPrefixNumber+1) + "- (" + experimentTitle + " - " + mainOrTest + "P) - " + sdf.format(new Date());
-		if (!(new File(outputPath+"\\"+outputFolderName).mkdirs())){
+		File outputFolder = new File(outputPath, outputFolderName);
+		if (!outputFolder.mkdirs()){
 			fMR.errors = 1;
 			MyUtils.println("Error creating output folder!", indentationLevel);
 		}
