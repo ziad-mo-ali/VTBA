@@ -310,17 +310,30 @@ public class Algorithm {//test 9
 								MyUtils.println(subStep+"-"+projectCounter+"- "+project.owner_repo+" (projectId: " + projectId + ")", indentationLevel+4);
 					// Fresh commit index per project (COMMIT_WORD2VEC only)
 					TreeMap<String, ArrayList<AlgPrep.CommitRecord>> developerCommitIndex = new TreeMap<>();
+					TreeMap<String, ArrayList<AlgPrep.CommitMessageRecord>> developerCommitMessageIndex = new TreeMap<>();
 					if (generalExperimentType == GeneralExperimentType.COMMIT_WORD2VEC) {
-						List<String> soTags = new ArrayList<>(graph.getNodeNames());
-						AlgPrep.readAndIndexCommitDiffEvidence(
-							inputPath,
-							projectId,
-							projects,
-							localFMR,
-							developerCommitIndex,
-							soTags,
-							indentationLevel + 1
-						);
+						if (AlgPrep.getW2VCommitEvidenceMode().usesCode()) {
+							List<String> soTags = new ArrayList<>(graph.getNodeNames());
+							AlgPrep.readAndIndexCommitDiffEvidence(
+								inputPath,
+								projectId,
+								projects,
+								localFMR,
+								developerCommitIndex,
+								soTags,
+								indentationLevel + 1
+							);
+						}
+						if (AlgPrep.getW2VCommitEvidenceMode().usesMessage()) {
+							AlgPrep.readAndIndexCommitMessageEvidence(
+								inputPath,
+								projectId,
+								graph,
+								localFMR,
+								developerCommitMessageIndex,
+								indentationLevel + 1
+							);
+						}
 						totalFMR = MyUtils.addFileManipulationResults(totalFMR, localFMR);
 					}
 								Graph updatingGraph = new Graph();
@@ -379,7 +392,8 @@ public class Algorithm {//test 9
 									}
 
 									AlgPrep.W2VQueryState w2vQueryState = null;
-									if (generalExperimentType == GeneralExperimentType.COMMIT_WORD2VEC) {
+									if (generalExperimentType == GeneralExperimentType.COMMIT_WORD2VEC
+											&& AlgPrep.getW2VCommitEvidenceMode().usesCode()) {
 										w2vQueryState = AlgPrep.createW2VQueryState(wAC, graph, option2_w);
 									}
 
@@ -393,11 +407,15 @@ public class Algorithm {//test 9
 											wAC,
 											option5_prioritizePAs,
 											option2_w,
+											option3_TF,
+											option7_whenToCountTextLength,
 											developerCommitIndex,
+											developerCommitMessageIndex,
 											w2vQueryState,
 											scores);
 											String currentBugKey = projectId + ":" + a.bugNumber;
-											if (w2vDebugBugIds.contains(currentBugKey)) {
+											if (AlgPrep.getW2VCommitEvidenceMode().usesCode()
+													&& w2vDebugBugIds.contains(currentBugKey)) {
 											ArrayList<AlgPrep.W2VDebugInfo> debugInfos = AlgPrep.computeW2VDebugInfoForBug(
 												community,
 												a,
@@ -764,7 +782,8 @@ public class Algorithm {//test 9
 											additionalNodeWeightsInputFileNamePrefix = "nodeWeights3-sourceCode-";
 											break;
 										case COMMIT_WORD2VEC:
-											methodology = "CommitWord2Vec-" + AlgPrep.getW2VRecencyPeriod().name();
+											methodology = "CommitEvidence-" + AlgPrep.getW2VCommitEvidenceMode().name()
+													+ "-" + AlgPrep.getW2VRecencyPeriod().name();
 											inputDir = Constants.DATASET_DIRECTORY_FOR_THE_ALGORITHM__GH__EXPERIMENT_MAIN;
 											nodeWeightsInputPath = Constants.DATASET_DIRECTORY_FOR_THE_ALGORITHM__SO__EXPERIMENT;
 											nodeWeightsInputFile = "nodeWeights.tsv";

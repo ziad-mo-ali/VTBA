@@ -182,6 +182,7 @@ public class Constants {
 			};
 
 	public static final String COMMITS_DIFFS_TSV = "2-commits-diffs.tsv";
+	public static final String COMMITS_TSV = "2-commits.tsv";
 	public static final String SIM_BRIDGE_SCRIPT = "/content/VTBA/sim_bridge.py";
 
 	public static double[] highScores = new double[]{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
@@ -219,6 +220,19 @@ public class Constants {
 
 		W2VRecencyPeriod(double daysPerPeriod){
 			this.daysPerPeriod = daysPerPeriod;
+		}
+	}
+	public enum W2VCommitEvidenceMode{
+		CODE_ONLY,
+		MESSAGE_ONLY,
+		CODE_AND_MESSAGE;
+
+		public boolean usesCode(){
+			return this != MESSAGE_ONLY;
+		}
+
+		public boolean usesMessage(){
+			return this != CODE_ONLY;
 		}
 	}
 	public enum GeneralExperimentType{

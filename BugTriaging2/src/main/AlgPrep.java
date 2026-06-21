@@ -48,6 +48,7 @@ import utils.Constants.BTOption8_recency;
 import utils.Constants.GeneralExperimentType;
 import utils.Constants.ProjectType;
 import utils.Constants.W2VRecencyPeriod;
+import utils.Constants.W2VCommitEvidenceMode;
 import utils.FileManipulationResult;
 import utils.Graph;
 import utils.MyUtils;
@@ -62,6 +63,8 @@ public class AlgPrep {
 	public static Random random = new Random();			
 	private static final W2VRecencyPeriod W2V_RECENCY_PERIOD = W2VRecencyPeriod.valueOf(
 			System.getProperty("w2v.recency.period", W2VRecencyPeriod.PER_DAY.name()));
+	private static final W2VCommitEvidenceMode W2V_COMMIT_EVIDENCE_MODE = W2VCommitEvidenceMode.valueOf(
+			System.getProperty("w2v.commit.evidence", W2VCommitEvidenceMode.CODE_ONLY.name()));
 
 	public static class CommitRecord {
 		public String sha;
@@ -75,6 +78,25 @@ public class AlgPrep {
             this.date = date;
             this.commitVector = commitVector;
         }
+	}
+
+	public static class CommitMessageRecord {
+		public String sha;
+		public String user;
+		public Date date;
+		public Map<String, Integer> tagCounts;
+		public int filteredWordCount;
+		public int originalWordCount;
+
+		public CommitMessageRecord(String sha, String user, Date date,
+				Map<String, Integer> tagCounts, int filteredWordCount, int originalWordCount) {
+			this.sha = sha;
+			this.user = user;
+			this.date = date;
+			this.tagCounts = tagCounts;
+			this.filteredWordCount = filteredWordCount;
+			this.originalWordCount = originalWordCount;
+		}
 	}
 
 	public static class W2VQueryState {
@@ -129,6 +151,26 @@ public class AlgPrep {
 		return W2V_RECENCY_PERIOD;
 	}
 
+	public static W2VCommitEvidenceMode getW2VCommitEvidenceMode() {
+		return W2V_COMMIT_EVIDENCE_MODE;
+	}
+
+	private static int getMessageCommitIndexBeforeDate(List<CommitMessageRecord> commits, Date date) {
+		int lo = 0;
+		int hi = commits.size() - 1;
+		int idx = -1;
+		while (lo <= hi) {
+			int mid = (lo + hi) >>> 1;
+			if (commits.get(mid).date.compareTo(date) < 0) {
+				idx = mid;
+				lo = mid + 1;
+			} else {
+				hi = mid - 1;
+			}
+		}
+		return idx;
+	}
+
 	/**
 	 * Average commit rate using only evidence available when the assignment is
 	 * made. Using a project-end rate here leaks future commits and nearly zeros
@@ -141,6 +183,35 @@ public class AlgPrep {
 				MyUtils.getDifferenceInDays(assignmentDate, commits.get(0).date));
 		double periodCount = periodDays / W2V_RECENCY_PERIOD.daysPerPeriod;
 		return commitCount / periodCount;
+	}
+
+	private static double getAverageMessageCommitsPerPeriodAtAssignment(
+			List<CommitMessageRecord> commits, int lastCommitIndex, Date assignmentDate) {
+		int commitCount = lastCommitIndex + 1;
+		double periodDays = Math.max(1,
+				MyUtils.getDifferenceInDays(assignmentDate, commits.get(0).date));
+		double periodCount = periodDays / W2V_RECENCY_PERIOD.daysPerPeriod;
+		return commitCount / periodCount;
+	}
+
+	private static double getCommitMessageTf(CommitMessageRecord record, String tag,
+			BTOption3_TF option3_TF, BTOption7_whenToCountTextLength option7_whenToCountTextLength) {
+		Integer count = record.tagCounts.get(tag);
+		if (count == null)
+			return 0.0;
+		switch (option3_TF) {
+		case ONE:
+			return 1.0;
+		case FREQ:
+			return count;
+		case FREQ__TOTAL_NUMBER_OF_TERMS:
+			int denominator = option7_whenToCountTextLength == BTOption7_whenToCountTextLength.USE_TEXT_LENGTH_BEFORE_REMOVING_NON_SO_TAGS
+					? record.originalWordCount : record.filteredWordCount;
+			return denominator > 0 ? (double) count / denominator : 0.0;
+		case LOG_BASED:
+		default:
+			return 1.0 + Math.log10(count);
+		}
 	}
 
 	private static double getCommitRecency(
@@ -219,22 +290,27 @@ public class AlgPrep {
 				WordsAndCounts wAC,
 				BTOption5_prioritizePAs option5_prioritizePAs,
 				BTOption2_w option2_w,
+				BTOption3_TF option3_TF,
+				BTOption7_whenToCountTextLength option7_whenToCountTextLength,
 				TreeMap<String, ArrayList<CommitRecord>> developerCommitIndex,
+				TreeMap<String, ArrayList<CommitMessageRecord>> developerCommitMessageIndex,
 				W2VQueryState w2vQueryState,
 				HashMap<String, Double> scores) {
-		WordVecSimilarity w2v = WordVecSimilarity.getInstance();
+		boolean useCode = W2V_COMMIT_EVIDENCE_MODE.usesCode();
+		boolean useMessage = W2V_COMMIT_EVIDENCE_MODE.usesMessage();
+		WordVecSimilarity w2v = useCode ? WordVecSimilarity.getInstance() : null;
 		int devCount = community.size();
 		int dim = W2VSimilarity.DIM;
-		int[] queryTagIndices = new int[wAC.size];
-		float[][] queryTagVectors = new float[wAC.size][dim];
+		int[] queryTagIndices = useCode ? new int[wAC.size] : null;
+		float[][] queryTagVectors = useCode ? new float[wAC.size][dim] : null;
 		double[] tagWeights = new double[wAC.size];
-		if (w2vQueryState != null) {
+		if (useCode && w2vQueryState != null) {
 			System.arraycopy(w2vQueryState.tagIndices, 0, queryTagIndices, 0, wAC.size);
 			for (int i = 0; i < wAC.size; i++) {
 				queryTagVectors[i] = w2vQueryState.tagVectors[i];
 				tagWeights[i] = w2vQueryState.tagWeights[i];
 			}
-		} else {
+		} else if (useCode) {
 			for (int i = 0; i < wAC.size; i++) {
 				queryTagIndices[i] = w2v.indexOfTag(wAC.words[i]);
 				tagWeights[i] = option2_w == BTOption2_w.USE_TERM_WEIGHTING
@@ -243,10 +319,16 @@ public class AlgPrep {
 					w2v.readNormalizedRow(queryTagIndices[i], queryTagVectors[i]);
 				}
 			}
+		} else {
+			for (int i = 0; i < wAC.size; i++) {
+				tagWeights[i] = option2_w == BTOption2_w.USE_TERM_WEIGHTING
+						? graph.getNodeWeight(wAC.words[i]) : 1.0;
+			}
 		}
 
-		boolean useBatchNd4j = Nd4jUtils.isAvailable() && w2vQueryState != null && w2vQueryState.tagMatrix != null && devCount > 0;
-		float[][] aggregatedVectors = new float[devCount][dim];
+		boolean useBatchNd4j = useCode && Nd4jUtils.isAvailable() && w2vQueryState != null
+				&& w2vQueryState.tagMatrix != null && devCount > 0;
+		float[][] aggregatedVectors = useCode ? new float[devCount][dim] : null;
 		boolean[] hasAggregated = new boolean[devCount];
 		for (int devIndex = 0; devIndex < devCount; devIndex++) {
 			String login = community.get(devIndex)[0];
@@ -256,7 +338,7 @@ public class AlgPrep {
 				baseScore = 10000.0;
 			}
 			scores.put(login, baseScore);
-			if (developerCommitIndex != null && developerCommitIndex.containsKey(login)) {
+			if (useCode && developerCommitIndex != null && developerCommitIndex.containsKey(login)) {
 				ArrayList<CommitRecord> commits = developerCommitIndex.get(login);
 				int lastCommitIndex = getCommitIndexBeforeDate(commits, a.date);
 				if (lastCommitIndex >= 0) {
@@ -274,6 +356,28 @@ public class AlgPrep {
 							aggregatedVectors[devIndex][d] += (float) (recency * cv[d]);
 						}
 					}
+				}
+			}
+
+			if (useMessage && developerCommitMessageIndex != null
+					&& developerCommitMessageIndex.containsKey(login)) {
+				ArrayList<CommitMessageRecord> commits = developerCommitMessageIndex.get(login);
+				int lastCommitIndex = getMessageCommitIndexBeforeDate(commits, a.date);
+				if (lastCommitIndex >= 0) {
+					double averageCommitsPerPeriod = getAverageMessageCommitsPerPeriodAtAssignment(
+							commits, lastCommitIndex, a.date);
+					double messageScore = 0.0;
+					for (int ci = 0; ci <= lastCommitIndex; ci++) {
+						CommitMessageRecord record = commits.get(ci);
+						double recency = getCommitRecency(ci, lastCommitIndex, averageCommitsPerPeriod);
+						for (int i = 0; i < wAC.size; i++) {
+							double tf = getCommitMessageTf(record, wAC.words[i], option3_TF,
+									option7_whenToCountTextLength);
+							if (tf > 0.0)
+								messageScore += wAC.counts[i] * tagWeights[i] * tf * recency;
+						}
+					}
+				scores.put(login, scores.get(login) + messageScore);
 				}
 			}
 		}
@@ -294,7 +398,7 @@ public class AlgPrep {
 		for (int devIndex = 0; devIndex < devCount; devIndex++) {
 			String login = community.get(devIndex)[0];
 			double score = scores.get(login);
-			if (!hasAggregated[devIndex]) {
+			if (!useCode || !hasAggregated[devIndex]) {
 				scores.put(login, score);
 				continue;
 			}
@@ -1558,6 +1662,76 @@ public class AlgPrep {
 //				return (commitMessage + " " + getMainLanguages(project.mainLanguagePercentages)).replaceAll("\\s{2,}", " ").trim(); //removing extra spaces (that may be added right now by concatenating).
 //			else
 //				return commitMessage;
+	}
+	//------------------------------------------------------------------------------------------------------------------------
+	//------------------------------------------------------------------------------------------------------------------------
+	public static void readAndIndexCommitMessageEvidence(
+			String inputPath,
+			String projectId,
+			Graph graph,
+			FileManipulationResult fMR,
+			TreeMap<String, ArrayList<CommitMessageRecord>> developerCommitMessageIndex,
+			int indentationLevel) {
+		try (BufferedReader br = new BufferedReader(new FileReader(inputPath + "/" + Constants.COMMITS_TSV))) {
+			String s;
+			br.readLine(); // header
+			while ((s = br.readLine()) != null) {
+				String[] fields = s.split("\t", -1);
+				if (fields.length != 6) {
+					fMR.errors++;
+					continue;
+				}
+				if (!fields[1].equals(projectId))
+					continue;
+				String developer = fields[2];
+				if (developer.trim().isEmpty())
+					continue;
+
+				Date parsedDate;
+				try {
+					parsedDate = Constants.dateFormat.parse(fields[3]);
+				} catch (ParseException pe) {
+					fMR.errors++;
+					continue;
+				}
+
+				int originalWordCount;
+				try {
+					originalWordCount = Integer.parseInt(fields[5]);
+				} catch (NumberFormatException nfe) {
+					fMR.errors++;
+					continue;
+				}
+
+				Map<String, Integer> tagCounts = new LinkedHashMap<>();
+				int filteredWordCount = 0;
+				String message = fields[4].trim();
+				if (!message.isEmpty()) {
+					for (String token : message.split("\\s+")) {
+						// The dataset is pre-filtered to SO tags; this check prevents any
+						// accidental non-tag token from becoming exact-match evidence.
+						if (graph.hasNode(token)) {
+							tagCounts.merge(token, 1, Integer::sum);
+							filteredWordCount++;
+						}
+					}
+				}
+				// Keep commits with no matching tag as well: they contribute to
+				// commits_after and the average commit rate used by recency.
+				CommitMessageRecord record = new CommitMessageRecord(fields[0], developer, parsedDate,
+						tagCounts, filteredWordCount, originalWordCount);
+				developerCommitMessageIndex.computeIfAbsent(developer, k -> new ArrayList<>()).add(record);
+			}
+
+			for (ArrayList<CommitMessageRecord> commits : developerCommitMessageIndex.values())
+				commits.sort(Comparator.comparing(cr -> cr.date));
+			MyUtils.println("Indexed exact-tag commit message records for projectId: " + projectId,
+					indentationLevel);
+		} catch (IOException e) {
+			fMR.errors++;
+			System.out.println("ERROR reading commit message evidence!");
+			e.printStackTrace();
+		}
 	}
 	//------------------------------------------------------------------------------------------------------------------------
 	//------------------------------------------------------------------------------------------------------------------------
