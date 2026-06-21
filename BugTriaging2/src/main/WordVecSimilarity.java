@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 
 public class WordVecSimilarity {
+    public static final String TAG_PREFIX = "TAG_";
     public static final String DEFAULT_MODEL_DIR = "/content/models/w2v_model_5chunksaveing";
     public static final String MODEL_DIR = System.getProperty(
             "w2v.model.dir",
@@ -44,6 +45,11 @@ public class WordVecSimilarity {
         return index.indexOf(token);
     }
 
+    /** Return the model row for a supervised Stack Overflow tag label. */
+    public int indexOfTag(String tag) {
+        return index.indexOf(TAG_PREFIX + tag);
+    }
+
     public void readRow(int rowIndex, float[] dest) {
         index.readRow(rowIndex, dest);
     }
@@ -74,7 +80,7 @@ public class WordVecSimilarity {
         int[] tagIndices = new int[tagCount];
         for (int i = 0; i < tagCount; i++) {
             String tag = tags.get(i);
-            tagIndices[i] = (tag == null) ? -1 : index.indexOf(tag);
+            tagIndices[i] = (tag == null) ? -1 : indexOfTag(tag);
         }
 
         for (String token : tokens) {

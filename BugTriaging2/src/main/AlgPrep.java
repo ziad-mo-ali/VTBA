@@ -62,17 +62,15 @@ public class AlgPrep {
 
 	public static class CommitRecord {
 		public String sha;
-		public String user;
-		public Date date;
+        public String user;
+        public Date date;
         public float[] commitVector;
-        public double recency;
 
         public CommitRecord(String sha, String user, Date date, float[] commitVector) {
             this.sha = sha;
             this.user = user;
             this.date = date;
             this.commitVector = commitVector;
-            this.recency = 1.0;
         }
 	}
 
@@ -96,7 +94,7 @@ public class AlgPrep {
 		float[][] tagVectors = new float[wAC.size][W2VSimilarity.DIM];
 		double[] tagWeights = new double[wAC.size];
 		for (int i = 0; i < wAC.size; i++) {
-			tagIndices[i] = w2v.indexOf(wAC.words[i]);
+			tagIndices[i] = w2v.indexOfTag(wAC.words[i]);
 			tagWeights[i] = graph.getNodeWeight(wAC.words[i]);
 			if (tagIndices[i] >= 0) {
 				w2v.readNormalizedRow(tagIndices[i], tagVectors[i]);
@@ -120,6 +118,24 @@ public class AlgPrep {
 			}
 		}
 		return idx;
+	}
+
+	/**
+	 * Average commit rate using only evidence available when the assignment is
+	 * made. Using a project-end rate here leaks future commits and nearly zeros
+	 * the profiles of established developers for early bugs.
+	 */
+	private static double getAverageCommitsPerDayAtAssignment(
+			List<CommitRecord> commits, int lastCommitIndex, Date assignmentDate) {
+		int commitCount = lastCommitIndex + 1;
+		int periodDays = MyUtils.getDifferenceInDays(assignmentDate, commits.get(0).date);
+		return commitCount / (double) Math.max(1, periodDays);
+	}
+
+	private static double getCommitRecency(
+			int commitIndex, int lastCommitIndex, double averageCommitsPerDay) {
+		int commitsAfter = lastCommitIndex - commitIndex;
+		return 1.0 / (1.0 + commitsAfter / averageCommitsPerDay);
 	}
 
 	public static class W2VDebugInfo implements Comparable<W2VDebugInfo> {
@@ -159,10 +175,12 @@ public class AlgPrep {
 				ArrayList<CommitRecord> commits = developerCommitIndex.get(login);
 				int lastCommitIndex = getCommitIndexBeforeDate(commits, a.date);
 				if (lastCommitIndex >= 0) {
+					double averageCommitsPerDay = getAverageCommitsPerDayAtAssignment(
+						commits, lastCommitIndex, a.date);
 					for (int ci = 0; ci <= lastCommitIndex; ci++) {
 						CommitRecord cr = commits.get(ci);
 						float[] cv = cr.commitVector;
-						double recency = cr.recency;
+						double recency = getCommitRecency(ci, lastCommitIndex, averageCommitsPerDay);
 						for (int d = 0; d < dim; d++) {
 							aggregatedVector[d] += (float) (recency * cv[d]);
 						}
@@ -206,7 +224,7 @@ public class AlgPrep {
 			}
 		} else {
 			for (int i = 0; i < wAC.size; i++) {
-				queryTagIndices[i] = w2v.indexOf(wAC.words[i]);
+				queryTagIndices[i] = w2v.indexOfTag(wAC.words[i]);
 				tagWeights[i] = graph.getNodeWeight(wAC.words[i]);
 				if (queryTagIndices[i] >= 0) {
 					w2v.readNormalizedRow(queryTagIndices[i], queryTagVectors[i]);
@@ -230,13 +248,15 @@ public class AlgPrep {
 				int lastCommitIndex = getCommitIndexBeforeDate(commits, a.date);
 				if (lastCommitIndex >= 0) {
 					hasAggregated[devIndex] = true;
+					double averageCommitsPerDay = getAverageCommitsPerDayAtAssignment(
+						commits, lastCommitIndex, a.date);
 					for (int d = 0; d < dim; d++) {
 						aggregatedVectors[devIndex][d] = 0.0f;
 					}
 					for (int ci = 0; ci <= lastCommitIndex; ci++) {
 						CommitRecord cr = commits.get(ci);
 						float[] cv = cr.commitVector;
-						double recency = cr.recency;
+						double recency = getCommitRecency(ci, lastCommitIndex, averageCommitsPerDay);
 						for (int d = 0; d < dim; d++) {
 							aggregatedVectors[devIndex][d] += (float) (recency * cv[d]);
 						}
@@ -655,6 +675,8 @@ public class AlgPrep {
 				// Find index of last commit before bug date (commits are sorted)
 				int lastCommitIndex = getCommitIndexBeforeDate(commits, a.date);
 				if (lastCommitIndex >= 0) {
+					double averageCommitsPerDay = getAverageCommitsPerDayAtAssignment(
+						commits, lastCommitIndex, a.date);
 					int[] queryTagIndices;
 					float[][] queryTagVectors;
 					double[] tagWeights;
@@ -668,7 +690,7 @@ public class AlgPrep {
 						queryTagVectors = new float[wAC.size][W2VSimilarity.DIM];
 						tagWeights = new double[wAC.size];
 						for (int i = 0; i < wAC.size; i++) {
-							queryTagIndices[i] = w2v.indexOf(wAC.words[i]);
+							queryTagIndices[i] = w2v.indexOfTag(wAC.words[i]);
 							tagWeights[i] = graph.getNodeWeight(wAC.words[i]);
 							if (queryTagIndices[i] >= 0) {
 								w2v.readNormalizedRow(queryTagIndices[i], queryTagVectors[i]);
@@ -681,7 +703,7 @@ public class AlgPrep {
                     for (int d = 0; d < W2VSimilarity.DIM; d++) aggregatedVector[d] = 0.0f;
                     for (int ci = 0; ci <= lastCommitIndex; ci++) {
                         AlgPrep.CommitRecord cr = commits.get(ci);
-                        double recency = cr.recency;
+                        double recency = getCommitRecency(ci, lastCommitIndex, averageCommitsPerDay);
                         float[] cv = cr.commitVector;
                         for (int d = 0; d < W2VSimilarity.DIM; d++) {
                             aggregatedVector[d] += (float)(recency * cv[d]);
@@ -1656,53 +1678,19 @@ public class AlgPrep {
 				}
 			}
 
-// Sort each developer's commits by date ascending.
+// Sort each developer's commits by date ascending. Recency must be calculated
+// at query time so that future commits cannot affect an earlier assignment.
 		MyUtils.println("Finished reading commit diffs. Now sorting " + developerCommitIndex.size() + " developers' commits...", indentationLevel);
-		Date projectFirst = null;
-		Date projectLast = null;
 		int devCount = 0;
 		for (String dev : developerCommitIndex.keySet()) {
 			ArrayList<CommitRecord> commits = developerCommitIndex.get(dev);
 			commits.sort(Comparator.comparing(cr -> cr.date));
-
-			if (!commits.isEmpty()) {
-				Date first = commits.get(0).date;
-				Date last = commits.get(commits.size() - 1).date;
-				if (projectFirst == null || first.before(projectFirst)) {
-					projectFirst = first;
-				}
-				if (projectLast == null || last.after(projectLast)) {
-					projectLast = last;
-				}
-			}
 
 			devCount++;
 			if (devCount % 100 == 0) {
 				MyUtils.println("  Sorted " + devCount + " / " + developerCommitIndex.size() + " developers", indentationLevel + 1);
 			}
 		}
-
-		int projectPeriodDays = 0;
-		if (projectFirst != null && projectLast != null) {
-			projectPeriodDays = MyUtils.getDifferenceInDays(projectLast, projectFirst);
-		}
-		projectPeriodDays = Math.max(1, projectPeriodDays);
-
-		for (String dev : developerCommitIndex.keySet()) {
-			ArrayList<CommitRecord> commits = developerCommitIndex.get(dev);
-			if (!commits.isEmpty()) {
-				double avgCommitsPerPeriod = commits.size() / (double) projectPeriodDays;
-				if (avgCommitsPerPeriod == 0.0) {
-					avgCommitsPerPeriod = 1.0;
-				}
-
-				for (int j = 0; j < commits.size(); j++) {
-					CommitRecord cr = commits.get(j);
-					int commitsAfter = commits.size() - 1 - j;
-					cr.recency = 1.0 / (1.0 + commitsAfter / avgCommitsPerPeriod);
-				}
-				}
-			}
 
 			MyUtils.println("Indexed commit diff records for projectId: " + projectId, indentationLevel);
 		} catch (IOException e) {

@@ -8,6 +8,7 @@ import os
 MODEL_DIR = "/content/VTBA/w2v_model"
 MODEL_SUBDIR = "w2v_model_5chunksaveing"
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_SUBDIR, "word2vec.model")
+TAG_PREFIX = "TAG_"
 
 
 def load_model():
@@ -63,11 +64,12 @@ def main():
                 for tag in tags:
                     if not isinstance(tag, str):
                         continue
-                    if tag not in model.wv:
+                    model_tag = f"{TAG_PREFIX}{tag}"
+                    if model_tag not in model.wv:
                         continue
                     key = f"{token}__{tag}"
                     try:
-                        score = float(model.wv.similarity(token, tag))
+                        score = float(model.wv.similarity(token, model_tag))
                     except Exception:
                         continue
                     if score > 0.0:
