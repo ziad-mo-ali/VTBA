@@ -211,6 +211,16 @@ public class Constants {
 	public enum BTOption8_recency{
 		NO_RECENCY, RECENCY1, RECENCY2
 	}
+	public enum W2VRecencyPeriod{
+		PER_DAY(1.0),
+		PER_MONTH(365.2425 / 12.0);
+
+		public final double daysPerPeriod;
+
+		W2VRecencyPeriod(double daysPerPeriod){
+			this.daysPerPeriod = daysPerPeriod;
+		}
+	}
 	public enum GeneralExperimentType{
 		CALCULATE_OUR_METRIC__TTBA,
 		JUST_CALCULATE_ORIGINAL_TF_IDF,

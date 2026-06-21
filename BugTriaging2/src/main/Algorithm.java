@@ -380,7 +380,7 @@ public class Algorithm {//test 9
 
 									AlgPrep.W2VQueryState w2vQueryState = null;
 									if (generalExperimentType == GeneralExperimentType.COMMIT_WORD2VEC) {
-										w2vQueryState = AlgPrep.createW2VQueryState(wAC, graph);
+										w2vQueryState = AlgPrep.createW2VQueryState(wAC, graph, option2_w);
 									}
 
 									//Calculating the word count for idf:
@@ -392,6 +392,7 @@ public class Algorithm {//test 9
 											previousAssigneesInThisProject,
 											wAC,
 											option5_prioritizePAs,
+											option2_w,
 											developerCommitIndex,
 											w2vQueryState,
 											scores);
@@ -629,10 +630,12 @@ public class Algorithm {//test 9
 //				0  //Constants.OTHER_ASSIGNMENT_OPTIONS__CONCATENATE_MAIN_LANGUAGES_TO_THE_THE_COMMIT				--> concatenate "project main language" to the commit evidence
 //				};
 		
-		boolean isMainRun = true; //: means that we are running the code for all projects.
+		boolean isMainRun = Boolean.parseBoolean(System.getProperty("vtba.main.run", "true"));
 //		boolean isMainRun = false; //: means that we are running the code for only three test projects ("adobe/brackets", "fog/fog" and "lift/framework").
 		
-		GeneralExperimentType generalExperimentType = GeneralExperimentType.COMMIT_WORD2VEC;
+		GeneralExperimentType generalExperimentType = GeneralExperimentType.valueOf(
+				System.getProperty("vtba.experiment.type", GeneralExperimentType.COMMIT_WORD2VEC.name()));
+		long assignmentLimit = Long.getLong("vtba.assignment.limit", Constants.THIS_IS_REAL);
 //		GeneralExperimentType generalExperimentType = GeneralExperimentType.JUST_CALCULATE_ORIGINAL_TF_IDF;
 //		GeneralExperimentType generalExperimentType = GeneralExperimentType.JUST_CALCULATE_TIME_TF_IDF;
 //		GeneralExperimentType generalExperimentType = GeneralExperimentType.JUST_CALCULATE_TIME_TF_IDF2;
@@ -659,9 +662,7 @@ public class Algorithm {//test 9
 //			if (option1_whatToAddToAllBugs != BTOption1_whatToAddToAllBugs.JUST_USE_BUG_TD && option1_whatToAddToAllBugs != BTOption1_whatToAddToAllBugs.ADD_ML)
 //				continue;
 			for (BTOption2_w option2_w: BTOption2_w.values()){//: Term weighting
-//				if (option2_w != BTOption2_w.USE_TERM_WEIGHTING)
-//					continue;
-				if (option2_w != BTOption2_w.NO_TERM_WEIGHTING)
+				if (option2_w != BTOption2_w.USE_TERM_WEIGHTING)
 					continue;
 				for (BTOption3_TF option3_TF: BTOption3_TF.values()){//: TF formula.
 //					if (option3_TF != BTOption3_TF.LOG_BASED) //In our previous experiment (results stored in Old4-DecidingAbout4Options folder) it was shown that this (BTOption3.LOG_BASED) has the best performance.
@@ -761,6 +762,12 @@ public class Algorithm {//test 9
 											nodeWeightsInputFile = "nodeWeights.tsv";
 											additionalNodeWeightsInputPath = Constants.DATASET_DIRECTORY_FOR_THE_ALGORITHM__GH__EXPERIMENT_MAIN;
 											additionalNodeWeightsInputFileNamePrefix = "nodeWeights3-sourceCode-";
+											break;
+										case COMMIT_WORD2VEC:
+											methodology = "CommitWord2Vec-" + AlgPrep.getW2VRecencyPeriod().name();
+											inputDir = Constants.DATASET_DIRECTORY_FOR_THE_ALGORITHM__GH__EXPERIMENT_MAIN;
+											nodeWeightsInputPath = Constants.DATASET_DIRECTORY_FOR_THE_ALGORITHM__SO__EXPERIMENT;
+											nodeWeightsInputFile = "nodeWeights.tsv";
 											break;
 										default: //CALCULATE_OUR_METRIC__TTBA
 											 methodology = "OurTTBAMethod";
@@ -877,7 +884,7 @@ public class Algorithm {//test 9
 												option1_whatToAddToAllBugs, option2_w, option3_TF, option4_IDF, option5_prioritizePAs, option6_whatToAddToAllCommits, option7_whenToCountTextLength, option8_recency,
 												generalExperimentType, developerFilterationThreshold_leastNumberOfBugsToFixToBeConsidered, 
 												fMR,
-												false, 5000, 0, Constants.THIS_IS_REAL, "");		
+												false, 5000, 0, assignmentLimit, "");
 										if (fMR.errors > 0){
 											MyUtils.println("Error in experiment()!", 0);
 											return;

@@ -47,6 +47,7 @@ import utils.Constants.BTOption7_whenToCountTextLength;
 import utils.Constants.BTOption8_recency;
 import utils.Constants.GeneralExperimentType;
 import utils.Constants.ProjectType;
+import utils.Constants.W2VRecencyPeriod;
 import utils.FileManipulationResult;
 import utils.Graph;
 import utils.MyUtils;
@@ -59,6 +60,8 @@ public class AlgPrep {
 	public static int maxFreqOfAWordInAnEvidence = 0;
 	public static final String ALL_PROJECTS = "ALL_PROJECTS";
 	public static Random random = new Random();			
+	private static final W2VRecencyPeriod W2V_RECENCY_PERIOD = W2VRecencyPeriod.valueOf(
+			System.getProperty("w2v.recency.period", W2VRecencyPeriod.PER_DAY.name()));
 
 	public static class CommitRecord {
 		public String sha;
@@ -88,14 +91,16 @@ public class AlgPrep {
 		}
 	}
 
-	public static W2VQueryState createW2VQueryState(WordsAndCounts wAC, Graph graph) {
+	public static W2VQueryState createW2VQueryState(
+			WordsAndCounts wAC, Graph graph, BTOption2_w option2_w) {
 		WordVecSimilarity w2v = WordVecSimilarity.getInstance();
 		int[] tagIndices = new int[wAC.size];
 		float[][] tagVectors = new float[wAC.size][W2VSimilarity.DIM];
 		double[] tagWeights = new double[wAC.size];
 		for (int i = 0; i < wAC.size; i++) {
 			tagIndices[i] = w2v.indexOfTag(wAC.words[i]);
-			tagWeights[i] = graph.getNodeWeight(wAC.words[i]);
+			tagWeights[i] = option2_w == BTOption2_w.USE_TERM_WEIGHTING
+					? graph.getNodeWeight(wAC.words[i]) : 1.0;
 			if (tagIndices[i] >= 0) {
 				w2v.readNormalizedRow(tagIndices[i], tagVectors[i]);
 			}
@@ -120,22 +125,28 @@ public class AlgPrep {
 		return idx;
 	}
 
+	public static W2VRecencyPeriod getW2VRecencyPeriod() {
+		return W2V_RECENCY_PERIOD;
+	}
+
 	/**
 	 * Average commit rate using only evidence available when the assignment is
 	 * made. Using a project-end rate here leaks future commits and nearly zeros
 	 * the profiles of established developers for early bugs.
 	 */
-	private static double getAverageCommitsPerDayAtAssignment(
+	private static double getAverageCommitsPerPeriodAtAssignment(
 			List<CommitRecord> commits, int lastCommitIndex, Date assignmentDate) {
 		int commitCount = lastCommitIndex + 1;
-		int periodDays = MyUtils.getDifferenceInDays(assignmentDate, commits.get(0).date);
-		return commitCount / (double) Math.max(1, periodDays);
+		double periodDays = Math.max(1,
+				MyUtils.getDifferenceInDays(assignmentDate, commits.get(0).date));
+		double periodCount = periodDays / W2V_RECENCY_PERIOD.daysPerPeriod;
+		return commitCount / periodCount;
 	}
 
 	private static double getCommitRecency(
-			int commitIndex, int lastCommitIndex, double averageCommitsPerDay) {
+			int commitIndex, int lastCommitIndex, double averageCommitsPerPeriod) {
 		int commitsAfter = lastCommitIndex - commitIndex;
-		return 1.0 / (1.0 + commitsAfter / averageCommitsPerDay);
+		return 1.0 / (1.0 + commitsAfter / averageCommitsPerPeriod);
 	}
 
 	public static class W2VDebugInfo implements Comparable<W2VDebugInfo> {
@@ -175,12 +186,12 @@ public class AlgPrep {
 				ArrayList<CommitRecord> commits = developerCommitIndex.get(login);
 				int lastCommitIndex = getCommitIndexBeforeDate(commits, a.date);
 				if (lastCommitIndex >= 0) {
-					double averageCommitsPerDay = getAverageCommitsPerDayAtAssignment(
+					double averageCommitsPerPeriod = getAverageCommitsPerPeriodAtAssignment(
 						commits, lastCommitIndex, a.date);
 					for (int ci = 0; ci <= lastCommitIndex; ci++) {
 						CommitRecord cr = commits.get(ci);
 						float[] cv = cr.commitVector;
-						double recency = getCommitRecency(ci, lastCommitIndex, averageCommitsPerDay);
+						double recency = getCommitRecency(ci, lastCommitIndex, averageCommitsPerPeriod);
 						for (int d = 0; d < dim; d++) {
 							aggregatedVector[d] += (float) (recency * cv[d]);
 						}
@@ -207,6 +218,7 @@ public class AlgPrep {
 				HashSet<String> previousAssigneesInThisProject,
 				WordsAndCounts wAC,
 				BTOption5_prioritizePAs option5_prioritizePAs,
+				BTOption2_w option2_w,
 				TreeMap<String, ArrayList<CommitRecord>> developerCommitIndex,
 				W2VQueryState w2vQueryState,
 				HashMap<String, Double> scores) {
@@ -225,7 +237,8 @@ public class AlgPrep {
 		} else {
 			for (int i = 0; i < wAC.size; i++) {
 				queryTagIndices[i] = w2v.indexOfTag(wAC.words[i]);
-				tagWeights[i] = graph.getNodeWeight(wAC.words[i]);
+				tagWeights[i] = option2_w == BTOption2_w.USE_TERM_WEIGHTING
+						? graph.getNodeWeight(wAC.words[i]) : 1.0;
 				if (queryTagIndices[i] >= 0) {
 					w2v.readNormalizedRow(queryTagIndices[i], queryTagVectors[i]);
 				}
@@ -248,7 +261,7 @@ public class AlgPrep {
 				int lastCommitIndex = getCommitIndexBeforeDate(commits, a.date);
 				if (lastCommitIndex >= 0) {
 					hasAggregated[devIndex] = true;
-					double averageCommitsPerDay = getAverageCommitsPerDayAtAssignment(
+					double averageCommitsPerPeriod = getAverageCommitsPerPeriodAtAssignment(
 						commits, lastCommitIndex, a.date);
 					for (int d = 0; d < dim; d++) {
 						aggregatedVectors[devIndex][d] = 0.0f;
@@ -256,7 +269,7 @@ public class AlgPrep {
 					for (int ci = 0; ci <= lastCommitIndex; ci++) {
 						CommitRecord cr = commits.get(ci);
 						float[] cv = cr.commitVector;
-						double recency = getCommitRecency(ci, lastCommitIndex, averageCommitsPerDay);
+						double recency = getCommitRecency(ci, lastCommitIndex, averageCommitsPerPeriod);
 						for (int d = 0; d < dim; d++) {
 							aggregatedVectors[devIndex][d] += (float) (recency * cv[d]);
 						}
@@ -675,7 +688,7 @@ public class AlgPrep {
 				// Find index of last commit before bug date (commits are sorted)
 				int lastCommitIndex = getCommitIndexBeforeDate(commits, a.date);
 				if (lastCommitIndex >= 0) {
-					double averageCommitsPerDay = getAverageCommitsPerDayAtAssignment(
+					double averageCommitsPerPeriod = getAverageCommitsPerPeriodAtAssignment(
 						commits, lastCommitIndex, a.date);
 					int[] queryTagIndices;
 					float[][] queryTagVectors;
@@ -691,7 +704,8 @@ public class AlgPrep {
 						tagWeights = new double[wAC.size];
 						for (int i = 0; i < wAC.size; i++) {
 							queryTagIndices[i] = w2v.indexOfTag(wAC.words[i]);
-							tagWeights[i] = graph.getNodeWeight(wAC.words[i]);
+							tagWeights[i] = option2_w == BTOption2_w.USE_TERM_WEIGHTING
+									? graph.getNodeWeight(wAC.words[i]) : 1.0;
 							if (queryTagIndices[i] >= 0) {
 								w2v.readNormalizedRow(queryTagIndices[i], queryTagVectors[i]);
 							}
@@ -703,7 +717,7 @@ public class AlgPrep {
                     for (int d = 0; d < W2VSimilarity.DIM; d++) aggregatedVector[d] = 0.0f;
                     for (int ci = 0; ci <= lastCommitIndex; ci++) {
                         AlgPrep.CommitRecord cr = commits.get(ci);
-                        double recency = getCommitRecency(ci, lastCommitIndex, averageCommitsPerDay);
+                        double recency = getCommitRecency(ci, lastCommitIndex, averageCommitsPerPeriod);
                         float[] cv = cr.commitVector;
                         for (int d = 0; d < W2VSimilarity.DIM; d++) {
                             aggregatedVector[d] += (float)(recency * cv[d]);
@@ -891,23 +905,19 @@ public class AlgPrep {
 						+ TAB + "#ofCommunityMembers:" + TAB + min+" - "+max + TAB + "" + TAB + "" + TAB + "" + TAB + "" + TAB + "" + TAB + "";
 				for (String owner_repo: projectNamesAndTheirIds.keySet()){
 					String projectId = projectNamesAndTheirIds.get(owner_repo);
-					if (projectsAndTheirAssignmentStats.containsKey(projectId)){
-						int nOA = projectsAndTheirAssignmentStats.get(projectId).size(); //:number of assignments.
-						int nOCM = projectsAndTheirCommunities.get(projectId).size(); //: number of community members.
-						overalTitle = overalTitle + "project:"+ TAB + owner_repo + TAB + projectId + TAB + "#ofAssignments:" + TAB + nOA + TAB + "#ofCommunityMembers:" 
-								+ TAB + nOCM + TAB + "" + TAB + "" + TAB + "" + TAB + "" + TAB + "";
-					}
+					int nOA = projectsAndTheirAssignmentStats.containsKey(projectId)
+							? projectsAndTheirAssignmentStats.get(projectId).size() : 0;
+					int nOCM = projectsAndTheirCommunities.get(projectId).size();
+					overalTitle = overalTitle + "project:"+ TAB + owner_repo + TAB + projectId + TAB + "#ofAssignments:" + TAB + nOA + TAB + "#ofCommunityMembers:"
+							+ TAB + nOCM + TAB + "" + TAB + "" + TAB + "" + TAB + "" + TAB + "";
 				}				
 				overalTitle = overalTitle + "\n";
 				//Second line of the two line title:
 				overalTitle = overalTitle + "Experiment title" + TAB + "TIME" + TAB + "MRR" + TAB + "MAP" + TAB + "Top 1" + TAB + "Top 5" + TAB + "Top 10" 
 						+ TAB + "p@1" + TAB + "r@1" + TAB + "p@5" + TAB + "r@5" + TAB + "p@10" + TAB + "r@10" + TAB + "Any comments for the experiment";
 				for (String owner_repo: projectNamesAndTheirIds.keySet()){
-					String projectId = projectNamesAndTheirIds.get(owner_repo);
-					if (projectsAndTheirAssignmentStats.containsKey(projectId)){
-						overalTitle = overalTitle + TAB + "MRR" + TAB + "MAP" + TAB + "Top 1" + TAB + "Top 5" + TAB + "Top 10" 
-								+ TAB + "p@1" + TAB + "r@1" + TAB + "p@5" + TAB + "r@5" + TAB + "p@10" + TAB + "r@10";
-					}
+					overalTitle = overalTitle + TAB + "MRR" + TAB + "MAP" + TAB + "Top 1" + TAB + "Top 5" + TAB + "Top 10"
+							+ TAB + "p@1" + TAB + "r@1" + TAB + "p@5" + TAB + "r@5" + TAB + "p@10" + TAB + "r@10";
 				}				
 				writer2.append(overalTitle + "\n");
 			}
