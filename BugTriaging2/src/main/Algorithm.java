@@ -405,7 +405,8 @@ public class Algorithm {//test 9
 											graph,
 											previousAssigneesInThisProject,
 											wAC,
-											option5_prioritizePAs,
+											AlgPrep.getW2VCommitEvidenceMode().usesBugHistory()
+													? BTOption5_prioritizePAs.NO_PRIORITY : option5_prioritizePAs,
 											option2_w,
 											option3_TF,
 											option7_whenToCountTextLength,
@@ -413,6 +414,39 @@ public class Algorithm {//test 9
 											developerCommitMessageIndex,
 											w2vQueryState,
 											scores);
+										if (AlgPrep.getW2VCommitEvidenceMode().usesBugHistory()) {
+											HashMap<String, Double> codeScores = new HashMap<String, Double>(scores);
+											HashMap<String, Double> bugHistoryScores = new HashMap<String, Double>();
+											int[] bugHistoryEvidenceType = new int[] {Constants.EVIDENCE_TYPE[i]};
+											for (int k = 0; k < community.size(); k++) {
+												String login = community.get(k)[0];
+												bugHistoryScores.put(login,
+													AlgPrep.calculateScoreOfDeveloperForBugAssignment(
+														login, a, graph, updatingGraph,
+														i, bugHistoryEvidenceType, 1,
+														logins_Tags_TypesAndTheirEvidence,
+														previousAssigneesInThisProject,
+														wAC, originalNumberOfWordsInBugText,
+														j + 1,
+														project.overalStartingDate,
+														GeneralExperimentType.CALCULATE_OUR_METRIC__TTBA,
+														community.size(),
+														wordsAnd_theDevelopersUsedThemUpToNow_lastUsageDate,
+														wordsAnd_theDevelopersUsedThemUpToNow_allUsageDates,
+														option2_w, option4_IDF,
+														BTOption5_prioritizePAs.NO_PRIORITY, option8_recency,
+														indentationLevel + 5,
+														developerCommitIndex,
+														w2vQueryState));
+											}
+											AlgPrep.combineBugHistoryAndCodeScores(
+													community,
+													bugHistoryScores,
+													codeScores,
+													previousAssigneesInThisProject,
+													option5_prioritizePAs,
+													scores);
+										}
 											String currentBugKey = projectId + ":" + a.bugNumber;
 											if (AlgPrep.getW2VCommitEvidenceMode().usesCode()
 													&& w2vDebugBugIds.contains(currentBugKey)) {
@@ -421,7 +455,7 @@ public class Algorithm {//test 9
 												a,
 												developerCommitIndex,
 												scores);
-											MyUtils.println(String.format("DEBUG: Top 10 developer W2V scores for bug %s in project %s:", a.bugNumber, project.owner_repo), indentationLevel+5);
+											MyUtils.println(String.format("DEBUG: Top 10 developer scores for bug %s in project %s:", a.bugNumber, project.owner_repo), indentationLevel+5);
 											MyUtils.println("DEBUG: login\tvectorNorm\tscore\tcommitsBeforeBugDate", indentationLevel+5);
 											for (int di = 0; di < Math.min(10, debugInfos.size()); di++) {
 												AlgPrep.W2VDebugInfo info = debugInfos.get(di);
@@ -784,6 +818,8 @@ public class Algorithm {//test 9
 										case COMMIT_WORD2VEC:
 											methodology = "CommitEvidence-" + AlgPrep.getW2VCommitEvidenceMode().name()
 													+ "-" + AlgPrep.getW2VRecencyPeriod().name();
+											if (AlgPrep.getW2VCommitEvidenceMode().usesBugHistory())
+												methodology += "-BugWeight" + AlgPrep.getHybridBugHistoryWeight();
 											inputDir = Constants.DATASET_DIRECTORY_FOR_THE_ALGORITHM__GH__EXPERIMENT_MAIN;
 											nodeWeightsInputPath = Constants.DATASET_DIRECTORY_FOR_THE_ALGORITHM__SO__EXPERIMENT;
 											nodeWeightsInputFile = "nodeWeights.tsv";

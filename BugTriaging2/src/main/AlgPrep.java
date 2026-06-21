@@ -65,6 +65,14 @@ public class AlgPrep {
 			System.getProperty("w2v.recency.period", W2VRecencyPeriod.PER_DAY.name()));
 	private static final W2VCommitEvidenceMode W2V_COMMIT_EVIDENCE_MODE = W2VCommitEvidenceMode.valueOf(
 			System.getProperty("w2v.commit.evidence", W2VCommitEvidenceMode.CODE_ONLY.name()));
+	private static final double HYBRID_BUG_HISTORY_WEIGHT = getConfiguredHybridBugHistoryWeight();
+
+	private static double getConfiguredHybridBugHistoryWeight() {
+		double weight = Double.parseDouble(System.getProperty("w2v.hybrid.bug.history.weight", "0.70"));
+		if (Double.isNaN(weight) || weight < 0.0 || weight > 1.0)
+			throw new IllegalArgumentException("w2v.hybrid.bug.history.weight must be between 0.0 and 1.0");
+		return weight;
+	}
 
 	public static class CommitRecord {
 		public String sha;
@@ -153,6 +161,53 @@ public class AlgPrep {
 
 	public static W2VCommitEvidenceMode getW2VCommitEvidenceMode() {
 		return W2V_COMMIT_EVIDENCE_MODE;
+	}
+
+	public static double getHybridBugHistoryWeight() {
+		return HYBRID_BUG_HISTORY_WEIGHT;
+	}
+
+	/**
+	 * Combines two independently min-max-normalized rankings. Normalization is
+	 * required because the paper score and vector-similarity score have unrelated
+	 * numeric scales; without it, a nominal 70/30 weighting is not meaningful.
+	 */
+	public static void combineBugHistoryAndCodeScores(
+			ArrayList<String[]> community,
+			HashMap<String, Double> bugHistoryScores,
+			HashMap<String, Double> codeScores,
+			HashSet<String> previousAssigneesInThisProject,
+			BTOption5_prioritizePAs option5_prioritizePAs,
+			HashMap<String, Double> combinedScores) {
+		double bugMin = Double.POSITIVE_INFINITY;
+		double bugMax = Double.NEGATIVE_INFINITY;
+		double codeMin = Double.POSITIVE_INFINITY;
+		double codeMax = Double.NEGATIVE_INFINITY;
+		for (String[] member : community) {
+			String login = member[0];
+			double bugScore = bugHistoryScores.containsKey(login) ? bugHistoryScores.get(login) : 0.0;
+			double codeScore = codeScores.containsKey(login) ? codeScores.get(login) : 0.0;
+			bugMin = Math.min(bugMin, bugScore);
+			bugMax = Math.max(bugMax, bugScore);
+			codeMin = Math.min(codeMin, codeScore);
+			codeMax = Math.max(codeMax, codeScore);
+		}
+		double bugRange = bugMax - bugMin;
+		double codeRange = codeMax - codeMin;
+		double codeWeight = 1.0 - HYBRID_BUG_HISTORY_WEIGHT;
+		for (String[] member : community) {
+			String login = member[0];
+			double bugScore = bugHistoryScores.containsKey(login) ? bugHistoryScores.get(login) : 0.0;
+			double codeScore = codeScores.containsKey(login) ? codeScores.get(login) : 0.0;
+			double normalizedBugScore = bugRange > 0.0 ? (bugScore - bugMin) / bugRange : 0.0;
+			double normalizedCodeScore = codeRange > 0.0 ? (codeScore - codeMin) / codeRange : 0.0;
+			double combined = HYBRID_BUG_HISTORY_WEIGHT * normalizedBugScore
+					+ codeWeight * normalizedCodeScore;
+			if (option5_prioritizePAs == BTOption5_prioritizePAs.PRIORITY_FOR_PREVIOUS_ASSIGNEES
+					&& previousAssigneesInThisProject.contains(login))
+				combined += 10000.0;
+			combinedScores.put(login, combined);
+		}
 	}
 
 	private static int getMessageCommitIndexBeforeDate(List<CommitMessageRecord> commits, Date date) {

@@ -225,14 +225,19 @@ public class Constants {
 	public enum W2VCommitEvidenceMode{
 		CODE_ONLY,
 		MESSAGE_ONLY,
-		CODE_AND_MESSAGE;
+		CODE_AND_MESSAGE,
+		BUG_HISTORY_AND_CODE;
 
 		public boolean usesCode(){
 			return this != MESSAGE_ONLY;
 		}
 
 		public boolean usesMessage(){
-			return this != CODE_ONLY;
+			return this == MESSAGE_ONLY || this == CODE_AND_MESSAGE;
+		}
+
+		public boolean usesBugHistory(){
+			return this == BUG_HISTORY_AND_CODE;
 		}
 	}
 	public enum GeneralExperimentType{
