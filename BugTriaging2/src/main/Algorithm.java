@@ -412,6 +412,27 @@ public class Algorithm {//test 9
 													info.score,
 													info.commitsBeforeBugDate), indentationLevel+5);
 											}
+											if (realAssignees.containsKey(a.bugNumber)) {
+												HashMap<String, Integer> bugAssignees = realAssignees.get(a.bugNumber);
+												for (String assigneeLogin : bugAssignees.keySet()) {
+													int rank = bugAssignees.get(assigneeLogin);
+													AlgPrep.W2VDebugInfo assigneeInfo = null;
+													for (AlgPrep.W2VDebugInfo info : debugInfos) {
+														if (info.login.equals(assigneeLogin)) {
+															assigneeInfo = info;
+															break;
+														}
+													}
+													if (assigneeInfo != null) {
+														MyUtils.println(String.format("DEBUG: REAL ASSIGNEE: %s\t%d\t%.6f\t%.6f\t%d",
+															assigneeInfo.login,
+															rank,
+															assigneeInfo.aggregatedVectorNorm,
+															assigneeInfo.score,
+															assigneeInfo.commitsBeforeBugDate), indentationLevel+5);
+													}
+												}
+											}
 										}
 									} else {
 										for (int k = 0; k < community.size(); k++) {
