@@ -240,6 +240,19 @@ public class Constants {
 			return this == BUG_HISTORY_AND_CODE;
 		}
 	}
+	public enum BugHistoryRecencyMode{
+		PAPER_ASSIGNMENT_DISTANCE,
+		UNIQUE_BUG_DISTANCE,
+		EXPONENTIAL_TIME
+	}
+	public enum BugHistoryQueryExpansionMode{
+		NONE,
+		SO_TAG_GRAPH
+	}
+	public enum BugHistoryTermWeightMode{
+		SO_ONLY,
+		SO_PROJECT_BLEND
+	}
 	public enum GeneralExperimentType{
 		CALCULATE_OUR_METRIC__TTBA,
 		JUST_CALCULATE_ORIGINAL_TF_IDF,

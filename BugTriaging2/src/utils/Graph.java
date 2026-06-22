@@ -30,6 +30,10 @@ public class Graph {
 			result = 0;
 		return result;
 	}
+	public HashMap<String, Double> getNeighbors(String node){
+		HashMap<String, Double> neighbors = edgeWeights.get(node);
+		return neighbors == null ? new HashMap<String, Double>() : new HashMap<String, Double>(neighbors);
+	}
 	public boolean hasNode(String node){
 		if (nodeWeights == null)
 			return false;

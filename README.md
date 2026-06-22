@@ -22,3 +22,27 @@ How to run the code:
 7- If you have any problems or issues, you can create an issue in this repository and I will answer to that. Or you can contact "alisajedi [at] ualberta.ca" for other questions.
 
 Thank you for your interest in our project. Ali Sajedi.
+
+## Runtime bug-history variants
+
+The original paper behavior remains the default. The following JVM properties can be used independently with the
+paper method or with `-Dw2v.commit.evidence=BUG_HISTORY_AND_CODE`:
+
+```text
+-Dvtba.bug.history.recency=PAPER_ASSIGNMENT_DISTANCE
+-Dvtba.bug.history.recency=UNIQUE_BUG_DISTANCE
+-Dvtba.bug.history.recency=EXPONENTIAL_TIME
+-Dvtba.bug.history.half.life.days=180
+
+-Dvtba.bug.history.query.expansion=NONE
+-Dvtba.bug.history.query.expansion=SO_TAG_GRAPH
+-Dvtba.bug.history.expansion.max.tags=3
+-Dvtba.bug.history.expansion.weight=0.25
+
+-Dvtba.bug.history.term.weight=SO_ONLY
+-Dvtba.bug.history.term.weight=SO_PROJECT_BLEND
+-Dvtba.bug.history.project.weight=0.30
+```
+
+`SO_TAG_GRAPH` adds the highest-weight neighboring Stack Overflow tags to the query at a reduced score multiplier.
+`SO_PROJECT_BLEND` combines the global Stack Overflow weight with a past-only project-specific developer IDF.

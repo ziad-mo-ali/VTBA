@@ -39,6 +39,7 @@ import utils.Constants.ProjectType;
 import utils.Constants.SortOrder;
 
 public class Algorithm {//test 9
+	private static boolean experimentFailed = false;
 	public static final int YES = 1;
 	public static final int NO = 0;
 	public static final int UNKNOWN_RANK = Integer.MAX_VALUE;
@@ -76,7 +77,11 @@ public class Algorithm {//test 9
 		MyUtils.println("Started ...", indentationLevel+1);
 
 		Graph graph = new Graph();
-		graph.loadGraph(nodeWeightsInputPath, nodeWeightsFileName, ""/*no edges to read*/, localFMR, 
+		String bugHistoryEdgesFile = (generalExperimentType == GeneralExperimentType.COMMIT_WORD2VEC
+				|| generalExperimentType == GeneralExperimentType.CALCULATE_OUR_METRIC__TTBA)
+				&& AlgPrep.getBugHistoryQueryExpansionMode()
+						== utils.Constants.BugHistoryQueryExpansionMode.SO_TAG_GRAPH ? "edgeWeights.tsv" : "";
+		graph.loadGraph(nodeWeightsInputPath, nodeWeightsFileName, bugHistoryEdgesFile, localFMR, 
 				wrapOutputInLines, showProgressInterval*1000, indentationLevel+1, Constants.THIS_IS_REAL, MyUtils.concatTwoWriteMessageSteps(writeMessageStep, "1-1- Main graph"));
 		
 		Graph[] graphs = new Graph[13];
@@ -350,13 +355,19 @@ public class Algorithm {//test 9
 									= new HashMap<String, HashMap<String, HashSet<Date>>>();
 								
 								int numberOfBugsProcessed = 0;
+								HashMap<String, Integer> uniqueBugOrdinals = new HashMap<String, Integer>();
+								for (String[] assignmentFields : assignmentsOfThisProject)
+									if (!uniqueBugOrdinals.containsKey(assignmentFields[0]))
+										uniqueBugOrdinals.put(assignmentFields[0], uniqueBugOrdinals.size() + 1);
 								HashSet<String> previousAssigneesInThisProject = new HashSet<>();
+								HashMap<String, HashSet<String>> bugHistoryTagDevelopers = new HashMap<String, HashSet<String>>();
 								AlgPrep.removeAssignmentsOfDevelopersWhoFixedAtLeastNBugs(assignmentsOfThisProject, 
 										developerFilterationThreshold_leastNumberOfBugsToFixToBeConsidered, logins_Tags_TypesAndTheirEvidence, 
 										indentationLevel+5, localFMR);
 								totalFMR = MyUtils.addFileManipulationResults(totalFMR, localFMR);
 								for (int j=0; j<assignmentsOfThisProject.size(); j++){ 
 									Assignment a = new Assignment(assignmentsOfThisProject, j, indentationLevel+5);
+									int uniqueBugSeqNum = uniqueBugOrdinals.get(a.bugNumber);
 									HashMap<String, Double> scores = new HashMap<String, Double>(); 
 
 									Bug queryBug = new Bug(projectId, a.bugNumber, projectIdBugNumberAndTheirBugInfo, localFMR);
@@ -368,6 +379,14 @@ public class Algorithm {//test 9
 									if (generalExperimentType == GeneralExperimentType.CALCULATE_TBA)
 										bugText = StringManipulations.clean(bugText.toLowerCase().replaceAll(Constants.allValidCharactersInSOURCECODE_Strict_ForRegEx, " "));
 									WordsAndCounts wAC = new WordsAndCounts(bugText, option7_whenToCountTextLength, originalNumberOfWordsInBugText, stopWords);
+									boolean usePaperBugHistory = generalExperimentType == GeneralExperimentType.CALCULATE_OUR_METRIC__TTBA
+											|| (generalExperimentType == GeneralExperimentType.COMMIT_WORD2VEC
+													&& AlgPrep.getW2VCommitEvidenceMode().usesBugHistory());
+									WordsAndCounts bugHistoryWAC = usePaperBugHistory
+											? AlgPrep.expandBugHistoryQuery(wAC, graph) : wAC;
+									HashMap<String, Double> bugHistoryTermWeights = usePaperBugHistory
+											? AlgPrep.calculateBugHistoryTermWeights(
+													bugHistoryWAC, graph, bugHistoryTagDevelopers, community.size()) : null;
 									//
 									if (wAC.size == 0)
 										MyUtils.println("Warning: Empty bug text!", indentationLevel+5);
@@ -426,8 +445,9 @@ public class Algorithm {//test 9
 														i, bugHistoryEvidenceType, 1,
 														logins_Tags_TypesAndTheirEvidence,
 														previousAssigneesInThisProject,
-														wAC, originalNumberOfWordsInBugText,
+														bugHistoryWAC, originalNumberOfWordsInBugText,
 														j + 1,
+														uniqueBugSeqNum,
 														project.overalStartingDate,
 														GeneralExperimentType.CALCULATE_OUR_METRIC__TTBA,
 														community.size(),
@@ -437,7 +457,8 @@ public class Algorithm {//test 9
 														BTOption5_prioritizePAs.NO_PRIORITY, option8_recency,
 														indentationLevel + 5,
 														developerCommitIndex,
-														w2vQueryState));
+														w2vQueryState,
+														bugHistoryTermWeights));
 											}
 											AlgPrep.combineBugHistoryAndCodeScores(
 													community,
@@ -496,14 +517,16 @@ public class Algorithm {//test 9
 													i, evidenceTypesToConsider, evidenceTypesToConsider_count, 
 													logins_Tags_TypesAndTheirEvidence, 
 													previousAssigneesInThisProject, 
-													wAC, originalNumberOfWordsInBugText, 
+													bugHistoryWAC, originalNumberOfWordsInBugText, 
 													j+1, 
+													uniqueBugSeqNum,
 													project.overalStartingDate, 
 													generalExperimentType, community.size(), wordsAnd_theDevelopersUsedThemUpToNow_lastUsageDate, wordsAnd_theDevelopersUsedThemUpToNow_allUsageDates, 
 													option2_w, option4_IDF, option5_prioritizePAs, option8_recency,
 													indentationLevel+5,
 													developerCommitIndex,
-													w2vQueryState));
+													w2vQueryState,
+													bugHistoryTermWeights));
 									}
 								}
 									//Adding this assignee to the set of assignees of this bug (will be used in measuring the accuracies):
@@ -579,6 +602,8 @@ public class Algorithm {//test 9
 										break;
 									}
 									previousAssigneesInThisProject.add(a.login); 
+									for (int tagIndex = 0; tagIndex < wAC.size; tagIndex++)
+										bugHistoryTagDevelopers.computeIfAbsent(wAC.words[tagIndex], key -> new HashSet<String>()).add(a.login);
 								}
 								MyUtils.println(Constants.integerFormatter.format(numberOfBugsProcessed) + " bug assignments predicted.", indentationLevel+5);
 
@@ -831,6 +856,10 @@ public class Algorithm {//test 9
 											nodeWeightsInputFile = "nodeWeights.tsv";
 											break;
 										}
+										if (generalExperimentType == GeneralExperimentType.CALCULATE_OUR_METRIC__TTBA
+												|| (generalExperimentType == GeneralExperimentType.COMMIT_WORD2VEC
+														&& AlgPrep.getW2VCommitEvidenceMode().usesBugHistory()))
+											methodology += "-" + AlgPrep.getBugHistoryConfigurationLabel();
 //										if (generalExperimentType == GeneralExperimentType.JUST_CALCULATE_ORIGINAL_TF_IDF){
 //											methodology = "OnlyOrigTFIDF";
 //											inputDir = Constants.DATASET_DIRECTORY_FOR_THE_ALGORITHM__GH__EXPERIMENT_TFIDF;
@@ -942,6 +971,7 @@ public class Algorithm {//test 9
 												false, 5000, 0, assignmentLimit, "");
 										if (fMR.errors > 0){
 											MyUtils.println("Error in experiment()!", 0);
+											experimentFailed = true;
 											return;
 										}
 									}
@@ -960,6 +990,8 @@ public class Algorithm {//test 9
 	public static void main(String[] args) {
 		//This method will be called every time to assign bugs to developers and save the results in output files:
 		experiment();
+		if (experimentFailed)
+			System.exit(1);
 	}//main().
 }
 

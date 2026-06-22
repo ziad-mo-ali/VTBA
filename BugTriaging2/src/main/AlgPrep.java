@@ -49,6 +49,9 @@ import utils.Constants.GeneralExperimentType;
 import utils.Constants.ProjectType;
 import utils.Constants.W2VRecencyPeriod;
 import utils.Constants.W2VCommitEvidenceMode;
+import utils.Constants.BugHistoryRecencyMode;
+import utils.Constants.BugHistoryQueryExpansionMode;
+import utils.Constants.BugHistoryTermWeightMode;
 import utils.FileManipulationResult;
 import utils.Graph;
 import utils.MyUtils;
@@ -66,6 +69,29 @@ public class AlgPrep {
 	private static final W2VCommitEvidenceMode W2V_COMMIT_EVIDENCE_MODE = W2VCommitEvidenceMode.valueOf(
 			System.getProperty("w2v.commit.evidence", W2VCommitEvidenceMode.CODE_ONLY.name()));
 	private static final double HYBRID_BUG_HISTORY_WEIGHT = getConfiguredHybridBugHistoryWeight();
+	private static final BugHistoryRecencyMode BUG_HISTORY_RECENCY_MODE = BugHistoryRecencyMode.valueOf(
+			System.getProperty("vtba.bug.history.recency", BugHistoryRecencyMode.PAPER_ASSIGNMENT_DISTANCE.name()));
+	private static final BugHistoryQueryExpansionMode BUG_HISTORY_QUERY_EXPANSION_MODE = BugHistoryQueryExpansionMode.valueOf(
+			System.getProperty("vtba.bug.history.query.expansion", BugHistoryQueryExpansionMode.NONE.name()));
+	private static final BugHistoryTermWeightMode BUG_HISTORY_TERM_WEIGHT_MODE = BugHistoryTermWeightMode.valueOf(
+			System.getProperty("vtba.bug.history.term.weight", BugHistoryTermWeightMode.SO_ONLY.name()));
+	private static final int BUG_HISTORY_EXPANSION_MAX_TAGS = Integer.getInteger("vtba.bug.history.expansion.max.tags", 3);
+	private static final double BUG_HISTORY_EXPANSION_WEIGHT = Double.parseDouble(
+			System.getProperty("vtba.bug.history.expansion.weight", "0.25"));
+	private static final double BUG_HISTORY_PROJECT_WEIGHT = Double.parseDouble(
+			System.getProperty("vtba.bug.history.project.weight", "0.30"));
+	private static final double BUG_HISTORY_HALF_LIFE_DAYS = Double.parseDouble(
+			System.getProperty("vtba.bug.history.half.life.days", "180.0"));
+	static {
+		if (BUG_HISTORY_EXPANSION_MAX_TAGS < 0)
+			throw new IllegalArgumentException("vtba.bug.history.expansion.max.tags must be non-negative");
+		if (BUG_HISTORY_EXPANSION_WEIGHT < 0.0 || BUG_HISTORY_EXPANSION_WEIGHT > 1.0)
+			throw new IllegalArgumentException("vtba.bug.history.expansion.weight must be between 0.0 and 1.0");
+		if (BUG_HISTORY_PROJECT_WEIGHT < 0.0 || BUG_HISTORY_PROJECT_WEIGHT > 1.0)
+			throw new IllegalArgumentException("vtba.bug.history.project.weight must be between 0.0 and 1.0");
+		if (BUG_HISTORY_HALF_LIFE_DAYS <= 0.0)
+			throw new IllegalArgumentException("vtba.bug.history.half.life.days must be positive");
+	}
 
 	private static double getConfiguredHybridBugHistoryWeight() {
 		double weight = Double.parseDouble(System.getProperty("w2v.hybrid.bug.history.weight", "0.70"));
@@ -165,6 +191,86 @@ public class AlgPrep {
 
 	public static double getHybridBugHistoryWeight() {
 		return HYBRID_BUG_HISTORY_WEIGHT;
+	}
+
+	public static BugHistoryRecencyMode getBugHistoryRecencyMode() { return BUG_HISTORY_RECENCY_MODE; }
+	public static BugHistoryQueryExpansionMode getBugHistoryQueryExpansionMode() { return BUG_HISTORY_QUERY_EXPANSION_MODE; }
+	public static BugHistoryTermWeightMode getBugHistoryTermWeightMode() { return BUG_HISTORY_TERM_WEIGHT_MODE; }
+	public static String getBugHistoryConfigurationLabel() {
+		String label = "BHRecency-" + BUG_HISTORY_RECENCY_MODE.name()
+				+ "-BHExpand-" + BUG_HISTORY_QUERY_EXPANSION_MODE.name()
+				+ "-BHWeight-" + BUG_HISTORY_TERM_WEIGHT_MODE.name();
+		if (BUG_HISTORY_RECENCY_MODE == BugHistoryRecencyMode.EXPONENTIAL_TIME)
+			label += "-HalfLife" + BUG_HISTORY_HALF_LIFE_DAYS;
+		if (BUG_HISTORY_QUERY_EXPANSION_MODE == BugHistoryQueryExpansionMode.SO_TAG_GRAPH)
+			label += "-ExpandN" + BUG_HISTORY_EXPANSION_MAX_TAGS + "-ExpandW" + BUG_HISTORY_EXPANSION_WEIGHT;
+		if (BUG_HISTORY_TERM_WEIGHT_MODE == BugHistoryTermWeightMode.SO_PROJECT_BLEND)
+			label += "-ProjectW" + BUG_HISTORY_PROJECT_WEIGHT;
+		return label;
+	}
+
+	public static WordsAndCounts expandBugHistoryQuery(WordsAndCounts original, Graph graph) {
+		if (BUG_HISTORY_QUERY_EXPANSION_MODE == BugHistoryQueryExpansionMode.NONE)
+			return original;
+		LinkedHashMap<String, Double> terms = new LinkedHashMap<String, Double>();
+		for (int i=0; i<original.size; i++)
+			terms.put(original.words[i], 1.0);
+		for (int i=0; i<original.size; i++) {
+			ArrayList<Map.Entry<String, Double>> neighbors = new ArrayList<Map.Entry<String, Double>>(
+					graph.getNeighbors(original.words[i]).entrySet());
+			neighbors.sort((a, b) -> Double.compare(b.getValue(), a.getValue()));
+			int added = 0;
+			for (Map.Entry<String, Double> neighbor : neighbors) {
+				if (added >= BUG_HISTORY_EXPANSION_MAX_TAGS)
+					break;
+				String tag = neighbor.getKey();
+				if (!graph.hasNode(tag) || terms.containsKey(tag))
+					continue;
+				double multiplier = Math.min(1.0, BUG_HISTORY_EXPANSION_WEIGHT * neighbor.getValue());
+				if (multiplier > 0.0) {
+					terms.put(tag, multiplier);
+					added++;
+				}
+			}
+		}
+		return WordsAndCounts.fromExpandedQuery(original,
+				new ArrayList<String>(terms.keySet()), new ArrayList<Double>(terms.values()));
+	}
+
+	public static HashMap<String, Double> calculateBugHistoryTermWeights(
+			WordsAndCounts query, Graph graph,
+			HashMap<String, HashSet<String>> tagDevelopersWithPriorEvidence,
+			int communitySize) {
+		HashMap<String, Double> result = new HashMap<String, Double>();
+		for (int i=0; i<query.size; i++) {
+			String tag = query.words[i];
+			double soWeight = graph.getNodeWeight(tag);
+			if (BUG_HISTORY_TERM_WEIGHT_MODE == BugHistoryTermWeightMode.SO_ONLY) {
+				result.put(tag, soWeight);
+				continue;
+			}
+			int developersWithPriorEvidence = tagDevelopersWithPriorEvidence.containsKey(tag)
+					? tagDevelopersWithPriorEvidence.get(tag).size() : 0;
+			double denominator = Math.log10(1.0 + Math.max(1, communitySize));
+			double projectWeight = denominator > 0.0
+					? Math.log10((1.0 + communitySize) / (1.0 + developersWithPriorEvidence)) / denominator : 0.0;
+			projectWeight = Math.max(0.0, Math.min(1.0, projectWeight));
+			result.put(tag, (1.0 - BUG_HISTORY_PROJECT_WEIGHT) * soWeight
+					+ BUG_HISTORY_PROJECT_WEIGHT * projectWeight);
+		}
+		return result;
+	}
+
+	private static double getBugHistoryQueryFrequency(WordsAndCounts query, int index, BTOption4_IDF option4_IDF) {
+		double multiplier = query.queryMultipliers == null ? 1.0 : query.queryMultipliers[index];
+		switch (option4_IDF) {
+		case ONE: return multiplier;
+		case FREQ: return multiplier * query.counts[index];
+		case FREQ__TOTAL_NUMBER_OF_TERMS:
+			return query.totalNumberOfWords > 0 ? multiplier * query.counts[index] / query.totalNumberOfWords : 0.0;
+		case LOG_BASED:
+		default: return multiplier * (1.0 + Math.log10(query.counts[index]));
+		}
 	}
 
 	/**
@@ -592,13 +698,15 @@ public class AlgPrep {
 			HashSet<String> previousAssigneesInThisProject, 
 			WordsAndCounts wAC, int originalNumberOfWordsInBugText, 
 			int seqNum, //seqNum is the sequence number of the bug. It is used for determining the recency based on FASE paper formula (number of bugs between a bugAssignmentEvidence and the current bug). 
+			int uniqueBugSeqNum,
 			Date beginningDateOfProject, 
 			GeneralExperimentType generalExperimentType, int numberOfCommunityMembers, HashMap<String, HashMap<String, Date>> wordsAnd_theDevelopersUsedThemUpToNow_lastUsageDate, //"java"--> <"bob", 1/1/1>
 			HashMap<String, HashMap<String, HashSet<Date>>> wordsAnd_theDevelopersUsedThemUpToNow_allUsageDates /*"java"--> <"bob", <2019/1/1, 2018/2/2, 2019/3/3, ...>>*/, 
 			BTOption2_w option2_w, BTOption4_IDF option4_IDF, BTOption5_prioritizePAs option5_prioritizePAs, BTOption8_recency option8_recency, 
 			int indentationLevel, 
 			TreeMap<String, ArrayList<AlgPrep.CommitRecord>> developerCommitIndex,
-			W2VQueryState w2vQueryState){
+			W2VQueryState w2vQueryState,
+			HashMap<String, Double> bugHistoryTermWeights){
 		//This method calculates the score of developer "login" for assignment "a". 
 		//		It considers the evidence of expertise from beginning of project until the time of "a". 
 		//			Later, it also considers the evidence in other projects (the project family experiment) using projectsAndTheirAssignments.
@@ -705,6 +813,8 @@ public class AlgPrep {
 						HashMap<Integer, ArrayList<Evidence>> typesAndEvidenceOfThisDeveloperForATag = tags_TypesAndTheirEvidence_ForADeveloperInAProject.get(wAC.words[i]); //: this is assuming that the non-SO-tag keywords are removed from the text of a bug.
 						if (generalExperimentType == GeneralExperimentType.CALCULATE_VTBA_GH__CALCULATE_WEIGHS_ONLINE)
 							termWeight = updatingGraph.getNodeWeight(wAC.words[i]);
+						else if (bugHistoryTermWeights != null && bugHistoryTermWeights.containsKey(wAC.words[i]))
+							termWeight = bugHistoryTermWeights.get(wAC.words[i]);
 						else
 							termWeight = graph.getNodeWeight(wAC.words[i]);
 						//Considering all different types of evidence (0: Constants.EVIDENCE_TYPE__BUG_TITLE to Constants.EVIDENCE_TYPES__COUNT-1):
@@ -723,8 +833,21 @@ public class AlgPrep {
 												errors1++;
 											if (e.bASeqNum == Constants.SEQ_NUM____THIS_IS_NOT__B_A_EVIDENCE)
 												System.out.println("ERROR!");
-											if (option8_recency == BTOption8_recency.RECENCY2) //note: here, we just calculate recency2. recency1 is the same for case #1 and case #2 (will be calculated directly in the subScore formula later).
-												recency2 = 1.0/(seqNum - e.bASeqNum); //case #1: This is the recency for bug assignment evidence.
+											if (option8_recency == BTOption8_recency.RECENCY2) {
+												switch (BUG_HISTORY_RECENCY_MODE) {
+												case UNIQUE_BUG_DISTANCE:
+													recency2 = 1.0 / Math.max(1, uniqueBugSeqNum - e.uniqueBugSeqNum);
+													break;
+												case EXPONENTIAL_TIME:
+													double ageDays = Math.max(0, MyUtils.getDifferenceInDays(a.date, e.date));
+													recency2 = Math.pow(0.5, ageDays / Math.max(1.0, BUG_HISTORY_HALF_LIFE_DAYS));
+													break;
+												case PAPER_ASSIGNMENT_DISTANCE:
+												default:
+													recency2 = 1.0 / Math.max(1, seqNum - e.bASeqNum);
+													break;
+												}
+											}
 										}
 										else{//(case #2): 11 (Constants.EVIDENCE_TYPE_COMMIT) to 15 (EVIDENCE_TYPE_PR_COMMENT).
 											if (e.nonBA_virtualSeqNum[assignmentTypeToTriage] > seqNum)
@@ -768,38 +891,11 @@ public class AlgPrep {
 								} //for (j
 							}
 						}
-						switch (option2_w){//: Term weighting
-						case NO_TERM_WEIGHTING:
-							switch (option4_IDF){//: IDF formula
-							case ONE:
-								score = score + subScore;
-								break;
-							case FREQ:
-								score = score + subScore * wAC.counts[i];
-								break;
-							case FREQ__TOTAL_NUMBER_OF_TERMS:
-								score = score + subScore * wAC.counts[i]/wAC.totalNumberOfWords;
-								break;
-							case LOG_BASED:
-								score = score + subScore * (1+Math.log10(wAC.counts[i]));
-								break;
-							}
-						case USE_TERM_WEIGHTING:
-							switch (option4_IDF){//: IDF formula
-							case ONE:
-								score = score + subScore * termWeight;
-								break;
-							case FREQ:
-								score = score + subScore * termWeight * wAC.counts[i];
-								break;
-							case FREQ__TOTAL_NUMBER_OF_TERMS:
-								score = score + subScore * termWeight * wAC.counts[i]/wAC.totalNumberOfWords;
-								break;
-							case LOG_BASED:
-								score = score + subScore * termWeight * (1+Math.log10(wAC.counts[i]));
-								break;
-							}
-						}
+						double queryFrequency = getBugHistoryQueryFrequency(wAC, i, option4_IDF);
+						if (option2_w == BTOption2_w.USE_TERM_WEIGHTING)
+							score = score + subScore * termWeight * queryFrequency;
+						else
+							score = score + subScore * queryFrequency;
 						//					score = score + termWeight * subScore * wAC.counts[i]/wAC.totalNumberOfWords; //
 						//					score = score + subScore * wAC.counts[i];
 
@@ -933,7 +1029,10 @@ public class AlgPrep {
 			File detailedStatsFolder = new File(new File(outputPath, assignmentResultsOveralFolderName), detailedAssignmentResultsSubfolderName);
 			if (!detailedStatsFolder.exists())
 				detailedStatsFolder.mkdirs();
-			File detailedStatsFile = new File(detailedStatsFolder, detailedAssignmentResultsSubfolderName+" - "+detailedSummaryOutputFileNameSuffix+".tsv");
+			// The folder already contains the full experiment configuration. Repeating
+			// it in the filename can exceed Windows' per-component filename limit.
+			File detailedStatsFile = new File(detailedStatsFolder,
+					"assignment-stats-" + detailedSummaryOutputFileNameSuffix + ".tsv");
 			FileWriter writer1 = new FileWriter(detailedStatsFile);
 			writer1.append("project" + TAB + "bugNumber" + TAB + "assignmentDate" + TAB + "ourTopRecommendedRealAssignee" 
 					+ TAB + "ourTopRecommendedRealAssigneeRank" + TAB + "totalCommunityMembers" + TAB + "realAssigneesTillNow" + "\n");
@@ -1230,7 +1329,7 @@ public class AlgPrep {
 	}
 	//------------------------------------------------------------------------------------------------------------------------
 	//------------------------------------------------------------------------------------------------------------------------
-	public static void addToIndex(String evidenceText, int evidenceType, int seqNum, int[] virtualSeqNum, //seqNum is the sequence number of the evidence. If it is an assignment, the row number in the assignments file (first assignment in the project is 1 and the next one increment by one). If it is not an assignment (e.g., it is a commit), the seqNum of the last assignment before that evidence will be considered.
+	public static void addToIndex(String evidenceText, int evidenceType, int seqNum, int uniqueBugSeqNum, int[] virtualSeqNum, //seqNum is the sequence number of the evidence. If it is an assignment, the row number in the assignments file (first assignment in the project is 1 and the next one increment by one). If it is not an assignment (e.g., it is a commit), the seqNum of the last assignment before that evidence will be considered.
 			int originalNumberOfWordsInTheText, 
 			Graph graph, Graph[] graphs, String projectId, String projectName, String login, String date, 
 			HashMap<String, HashMap<String, HashMap<String, HashMap<Integer, ArrayList<Evidence>>>>> projectId_Login_Tags_TypesAndTheirEvidence, 
@@ -1329,7 +1428,7 @@ public class AlgPrep {
 							numberOfWordsInTheText = words.length;
 							break;
 					}
-					e = new Evidence(Constants.dateFormat.parse(date), seqNum, virtualSeqNum, freq, numberOfWordsInTheText, option3_TF);
+					e = new Evidence(Constants.dateFormat.parse(date), seqNum, uniqueBugSeqNum, virtualSeqNum, freq, numberOfWordsInTheText, option3_TF);
 					type_x_Evidence.add(e);
 				} catch (ParseException e1) {
 					fMR.errors++;
@@ -1361,9 +1460,12 @@ public class AlgPrep {
 				String projectId = entry.getKey();
 				Project project = null;
 				int i = 0;
+				HashMap<String, Integer> uniqueBugOrdinals = new HashMap<String, Integer>();
 				for (i=0; i<assignmentsOfOneProject.size(); i++){
 					String[] fields = assignmentsOfOneProject.get(i);
 					String bugNumber = fields[0];
+					if (!uniqueBugOrdinals.containsKey(bugNumber))
+						uniqueBugOrdinals.put(bugNumber, uniqueBugOrdinals.size() + 1);
 					String date = fields[1];
 					String login = fields[2];//this is the assignee.
 					Bug bug = new Bug(projectId, bugNumber, projectIdBugNumberAndTheirBugInfo, fMR);
@@ -1385,7 +1487,7 @@ public class AlgPrep {
 						int[] virtualSeqNum = new int[Constants.NUMBER_OF_ASSIGNEE_TYPES];
 						for (int j=0; j<Constants.NUMBER_OF_ASSIGNEE_TYPES; j++)
 							virtualSeqNum[j] = Constants.SEQ_NUM____NO_NEED_TO_TRIAGE_THIS_TYPE___OR___THIS_IS_NOT__NON_B_A_EVIDENCE;
-						addToIndex(text, evidenceType, i+1, virtualSeqNum, originalNumberOfWordsInText, 
+						addToIndex(text, evidenceType, i+1, uniqueBugOrdinals.get(bugNumber), virtualSeqNum, originalNumberOfWordsInText, 
 								graph, graphs, projectId, projectName, login, date, projectId_Login_Tags_TypesAndTheirEvidence, option3_TF, option7_whenToCountTextLength, generalExperimentType, fMR);
 					}
 					else{
@@ -1471,7 +1573,7 @@ public class AlgPrep {
 										virtualSeqNum[j] = Constants.SEQ_NUM____NO_NEED_TO_TRIAGE_THIS_TYPE___OR___THIS_IS_NOT__NON_B_A_EVIDENCE;
 								}
 								if (text.length() > 2)
-									addToIndex(text, Constants.EVIDENCE_TYPE_COMMIT, Constants.SEQ_NUM____THIS_IS_NOT__B_A_EVIDENCE, virtualSeqNum, originalNumberOfWordsInText, 
+									addToIndex(text, Constants.EVIDENCE_TYPE_COMMIT, Constants.SEQ_NUM____THIS_IS_NOT__B_A_EVIDENCE, Constants.SEQ_NUM____THIS_IS_NOT__B_A_EVIDENCE, virtualSeqNum, originalNumberOfWordsInText, 
 											graph, graphs, projectId, projectName, committer, date, projectId_Login_Tags_TypesAndTheirEvidence, option3_TF, option7_whenToCountTextLength, generalExperimentType, fMR);
 								else{
 //									fMR.errors++;
