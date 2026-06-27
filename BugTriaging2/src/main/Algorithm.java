@@ -341,6 +341,11 @@ public class Algorithm {//test 9
 						}
 						totalFMR = MyUtils.addFileManipulationResults(totalFMR, localFMR);
 					}
+					AlgPrep.PerTagTokenEvidenceIndex perTagTokenEvidenceIndex =
+							generalExperimentType == GeneralExperimentType.COMMIT_WORD2VEC
+									&& AlgPrep.getW2VCommitEvidenceMode().usesPerTagTokenThreshold()
+							? AlgPrep.createPerTagTokenEvidenceIndex(
+									developerCommitIndex, indentationLevel + 1) : null;
 								Graph updatingGraph = new Graph();
 								HashMap<String, Long> occurrences = new HashMap<String, Long>(); 
 								LongClass maxNumberOfOccurrencesForAKeyword = new LongClass(0);
@@ -432,6 +437,7 @@ public class Algorithm {//test 9
 											developerCommitIndex,
 											developerCommitMessageIndex,
 											w2vQueryState,
+											perTagTokenEvidenceIndex,
 											scores);
 										if (AlgPrep.getW2VCommitEvidenceMode().usesBugHistory()) {
 											HashMap<String, Double> codeScores = new HashMap<String, Double>(scores);
@@ -605,6 +611,8 @@ public class Algorithm {//test 9
 									for (int tagIndex = 0; tagIndex < wAC.size; tagIndex++)
 										bugHistoryTagDevelopers.computeIfAbsent(wAC.words[tagIndex], key -> new HashSet<String>()).add(a.login);
 								}
+								if (perTagTokenEvidenceIndex != null)
+									perTagTokenEvidenceIndex.close();
 								MyUtils.println(Constants.integerFormatter.format(numberOfBugsProcessed) + " bug assignments predicted.", indentationLevel+5);
 
 								projectCounter++;

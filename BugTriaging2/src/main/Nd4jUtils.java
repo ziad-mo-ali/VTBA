@@ -10,6 +10,8 @@ public final class Nd4jUtils {
     private static final Method MMUL_METHOD;
     private static final Method RESHAPE_METHOD;
     private static final Method GET_FLOAT_METHOD;
+    private static final Method TO_FLOAT_VECTOR_METHOD;
+    private static final Method CLOSE_METHOD;
 
     static {
         Class<?> nd4jClass = null;
@@ -18,6 +20,8 @@ public final class Nd4jUtils {
         Method mmulMethod = null;
         Method reshapeMethod = null;
         Method getFloatMethod = null;
+        Method toFloatVectorMethod = null;
+        Method closeMethod = null;
         boolean available = false;
         try {
             nd4jClass = Class.forName("org.nd4j.linalg.factory.Nd4j");
@@ -26,7 +30,17 @@ public final class Nd4jUtils {
             Class<?> indArrayClass = Class.forName("org.nd4j.linalg.api.ndarray.INDArray");
             mmulMethod = indArrayClass.getMethod("mmul", indArrayClass);
             reshapeMethod = indArrayClass.getMethod("reshape", long[].class);
-            getFloatMethod = indArrayClass.getMethod("getFloat", int.class);
+            getFloatMethod = indArrayClass.getMethod("getFloat", long.class);
+            try {
+                toFloatVectorMethod = indArrayClass.getMethod("toFloatVector");
+            } catch (NoSuchMethodException ignored) {
+                toFloatVectorMethod = null;
+            }
+            try {
+                closeMethod = indArrayClass.getMethod("close");
+            } catch (NoSuchMethodException ignored) {
+                closeMethod = null;
+            }
             available = true;
         } catch (Throwable ignored) {
             available = false;
@@ -38,6 +52,8 @@ public final class Nd4jUtils {
         MMUL_METHOD = mmulMethod;
         RESHAPE_METHOD = reshapeMethod;
         GET_FLOAT_METHOD = getFloatMethod;
+        TO_FLOAT_VECTOR_METHOD = toFloatVectorMethod;
+        CLOSE_METHOD = closeMethod;
     }
 
     private Nd4jUtils() {
@@ -96,9 +112,36 @@ public final class Nd4jUtils {
             return 0f;
         }
         try {
-            return ((Float) GET_FLOAT_METHOD.invoke(array, index)).floatValue();
+            return ((Float) GET_FLOAT_METHOD.invoke(array, (long) index)).floatValue();
         } catch (Throwable e) {
             throw new RuntimeException("Failed to read float from ND4J array", e);
+        }
+    }
+
+    public static float[] toFloatVector(Object array, int expectedLength) {
+        if (!AVAILABLE) {
+            return null;
+        }
+        try {
+            if (TO_FLOAT_VECTOR_METHOD != null)
+                return (float[]) TO_FLOAT_VECTOR_METHOD.invoke(array);
+            float[] result = new float[expectedLength];
+            for (int i = 0; i < expectedLength; i++)
+                result[i] = ((Float) GET_FLOAT_METHOD.invoke(array, (long) i)).floatValue();
+            return result;
+        } catch (Throwable e) {
+            throw new RuntimeException("Failed to copy ND4J array to a float vector", e);
+        }
+    }
+
+    public static void close(Object array) {
+        if (array == null || CLOSE_METHOD == null) {
+            return;
+        }
+        try {
+            CLOSE_METHOD.invoke(array);
+        } catch (Throwable ignored) {
+            // Some ND4J workspaces own array lifetimes; their arrays need no explicit close.
         }
     }
 }

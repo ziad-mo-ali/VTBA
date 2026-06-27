@@ -26,6 +26,9 @@ import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+
 import main.Nd4jUtils;
 
 import data.Assignee;
@@ -68,6 +71,10 @@ public class AlgPrep {
 			System.getProperty("w2v.recency.period", W2VRecencyPeriod.PER_DAY.name()));
 	private static final W2VCommitEvidenceMode W2V_COMMIT_EVIDENCE_MODE = W2VCommitEvidenceMode.valueOf(
 			System.getProperty("w2v.commit.evidence", W2VCommitEvidenceMode.CODE_ONLY.name()));
+	private static final String TAG_THRESHOLDS_PATH = System.getProperty(
+			"w2v.tag.thresholds.path",
+			"D:/GP/EDR citations/2020/repo for colab/content/VTBA/tag_thresholds.json");
+	private static volatile Map<String, Double> tagSimilarityThresholds;
 	private static final double HYBRID_BUG_HISTORY_WEIGHT = getConfiguredHybridBugHistoryWeight();
 	private static final BugHistoryRecencyMode BUG_HISTORY_RECENCY_MODE = BugHistoryRecencyMode.valueOf(
 			System.getProperty("vtba.bug.history.recency", BugHistoryRecencyMode.PAPER_ASSIGNMENT_DISTANCE.name()));
@@ -100,11 +107,57 @@ public class AlgPrep {
 		return weight;
 	}
 
+	private static Map<String, Double> getTagSimilarityThresholds() {
+		Map<String, Double> result = tagSimilarityThresholds;
+		if (result != null)
+			return result;
+		synchronized (AlgPrep.class) {
+			result = tagSimilarityThresholds;
+			if (result == null) {
+				HashMap<String, Double> loaded = new HashMap<>();
+				try (FileReader reader = new FileReader(TAG_THRESHOLDS_PATH)) {
+					Object parsed = new JSONParser().parse(reader);
+					if (!(parsed instanceof JSONObject))
+						throw new IllegalArgumentException("Tag thresholds file must contain a JSON object");
+					JSONObject object = (JSONObject) parsed;
+					for (Object rawKey : object.keySet()) {
+						String key = String.valueOf(rawKey);
+						Object rawValue = object.get(rawKey);
+						if (!(rawValue instanceof Number))
+							throw new IllegalArgumentException("Non-numeric threshold for " + key);
+						if (key.startsWith(WordVecSimilarity.TAG_PREFIX))
+							key = key.substring(WordVecSimilarity.TAG_PREFIX.length());
+						loaded.put(key, ((Number) rawValue).doubleValue());
+					}
+				} catch (Exception e) {
+					throw new RuntimeException("Failed to load tag similarity thresholds from "
+							+ TAG_THRESHOLDS_PATH, e);
+				}
+				result = Collections.unmodifiableMap(loaded);
+				tagSimilarityThresholds = result;
+				MyUtils.println("Loaded " + result.size() + " per-tag similarity thresholds from "
+						+ TAG_THRESHOLDS_PATH, 0);
+			}
+		}
+		return result;
+	}
+
+	private static double getRequiredTagSimilarityThreshold(String tag) {
+		Double threshold = getTagSimilarityThresholds().get(tag);
+		if (threshold == null)
+			throw new IllegalArgumentException("No similarity threshold found for in-vocabulary tag: " + tag);
+		return threshold;
+	}
+
 	public static class CommitRecord {
 		public String sha;
         public String user;
         public Date date;
         public float[] commitVector;
+		public int[] tokenIndices;
+		public int[] tokenFrequencies;
+		public int[] projectTokenColumns;
+		public int projectCommitIndex = -1;
 
         public CommitRecord(String sha, String user, Date date, float[] commitVector) {
             this.sha = sha;
@@ -112,6 +165,14 @@ public class AlgPrep {
             this.date = date;
             this.commitVector = commitVector;
         }
+
+		public CommitRecord(String sha, String user, Date date, int[] tokenIndices, int[] tokenFrequencies) {
+			this.sha = sha;
+			this.user = user;
+			this.date = date;
+			this.tokenIndices = tokenIndices;
+			this.tokenFrequencies = tokenFrequencies;
+		}
 	}
 
 	public static class CommitMessageRecord {
@@ -147,6 +208,175 @@ public class AlgPrep {
 		}
 	}
 
+	public static class PerTagTokenEvidenceIndex {
+		private static final int GPU_TAG_BATCH_SIZE = Integer.getInteger(
+				"w2v.token.filtered.gpu.tag.batch.size", 32);
+		private static final int MAX_CACHED_TAGS = Integer.getInteger(
+				"w2v.token.filtered.cache.tags", 2048);
+
+		private final ArrayList<CommitRecord> commits;
+		private final int[] tokenIndicesByColumn;
+		private final Object tokenMatrix;
+		private final LinkedHashMap<Integer, double[]> commitEvidenceByTag;
+		private int computedTagCount;
+
+		private PerTagTokenEvidenceIndex(
+				TreeMap<String, ArrayList<CommitRecord>> developerCommitIndex,
+				int indentationLevel) {
+			if (GPU_TAG_BATCH_SIZE <= 0)
+				throw new IllegalArgumentException("w2v.token.filtered.gpu.tag.batch.size must be positive");
+			if (MAX_CACHED_TAGS <= 0)
+				throw new IllegalArgumentException("w2v.token.filtered.cache.tags must be positive");
+
+			LinkedHashMap<Integer, Integer> tokenColumns = new LinkedHashMap<Integer, Integer>();
+			commits = new ArrayList<CommitRecord>();
+			for (ArrayList<CommitRecord> developerCommits : developerCommitIndex.values()) {
+				for (CommitRecord commit : developerCommits) {
+					commit.projectCommitIndex = commits.size();
+					commits.add(commit);
+					commit.projectTokenColumns = new int[commit.tokenIndices.length];
+					for (int ti = 0; ti < commit.tokenIndices.length; ti++) {
+						Integer column = tokenColumns.get(commit.tokenIndices[ti]);
+						if (column == null) {
+							column = tokenColumns.size();
+							tokenColumns.put(commit.tokenIndices[ti], column);
+						}
+						commit.projectTokenColumns[ti] = column;
+					}
+				}
+			}
+
+			tokenIndicesByColumn = new int[tokenColumns.size()];
+			for (Map.Entry<Integer, Integer> entry : tokenColumns.entrySet())
+				tokenIndicesByColumn[entry.getValue()] = entry.getKey();
+
+			Object matrix = null;
+			if (Nd4jUtils.isAvailable() && tokenIndicesByColumn.length > 0) {
+				long started = System.currentTimeMillis();
+				MyUtils.println("Building GPU token matrix for " + tokenIndicesByColumn.length
+						+ " distinct project tokens...", indentationLevel);
+				float[][] vectorsByDimension = new float[W2VSimilarity.DIM][tokenIndicesByColumn.length];
+				float[] tokenVector = new float[W2VSimilarity.DIM];
+				WordVecSimilarity w2v = WordVecSimilarity.getInstance();
+				for (int column = 0; column < tokenIndicesByColumn.length; column++) {
+					w2v.readRow(tokenIndicesByColumn[column], tokenVector);
+					for (int d = 0; d < W2VSimilarity.DIM; d++)
+						vectorsByDimension[d][column] = tokenVector[d];
+				}
+				matrix = Nd4jUtils.create(vectorsByDimension);
+				MyUtils.println(String.format("GPU token matrix ready in %.1f sec (%d commits).",
+						(System.currentTimeMillis() - started) / 1000.0, commits.size()), indentationLevel);
+			}
+			tokenMatrix = matrix;
+			commitEvidenceByTag = new LinkedHashMap<Integer, double[]>(MAX_CACHED_TAGS + 1, 0.75f, true) {
+				private static final long serialVersionUID = 1L;
+				@Override
+				protected boolean removeEldestEntry(Map.Entry<Integer, double[]> eldest) {
+					return size() > MAX_CACHED_TAGS;
+				}
+			};
+		}
+
+		public synchronized double[][] getCommitEvidence(
+				int[] queryTagIndices, float[][] queryTagVectors, double[] tagThresholds,
+				WordVecSimilarity w2v, int indentationLevel) {
+			double[][] result = new double[queryTagIndices.length][];
+			ArrayList<Integer> missingQueryPositions = new ArrayList<Integer>();
+			for (int i = 0; i < queryTagIndices.length; i++) {
+				if (queryTagIndices[i] < 0)
+					continue;
+				double[] cached = commitEvidenceByTag.get(queryTagIndices[i]);
+				if (cached != null)
+					result[i] = cached;
+				else
+					missingQueryPositions.add(i);
+			}
+
+			for (int start = 0; start < missingQueryPositions.size(); start += GPU_TAG_BATCH_SIZE) {
+				int batchSize = Math.min(GPU_TAG_BATCH_SIZE, missingQueryPositions.size() - start);
+				float[][] similarities = tokenMatrix != null
+						? calculateGpuSimilarities(missingQueryPositions, start, batchSize, queryTagVectors)
+						: calculateCpuSimilarities(missingQueryPositions, start, batchSize, queryTagIndices, w2v);
+				for (int bi = 0; bi < batchSize; bi++) {
+					int queryPosition = missingQueryPositions.get(start + bi);
+					double[] evidence = aggregateCommitEvidence(similarities[bi], tagThresholds[queryPosition]);
+					commitEvidenceByTag.put(queryTagIndices[queryPosition], evidence);
+					result[queryPosition] = evidence;
+					computedTagCount++;
+				}
+				if (computedTagCount <= batchSize || computedTagCount % 100 == 0)
+					MyUtils.println((tokenMatrix != null ? "GPU" : "CPU")
+							+ " cached thresholded commit evidence for " + computedTagCount
+							+ " project tags.", indentationLevel);
+			}
+			return result;
+		}
+
+		private float[][] calculateGpuSimilarities(
+				ArrayList<Integer> positions, int start, int batchSize, float[][] queryTagVectors) {
+			float[][] batchVectors = new float[batchSize][W2VSimilarity.DIM];
+			for (int bi = 0; bi < batchSize; bi++)
+				System.arraycopy(queryTagVectors[positions.get(start + bi)], 0,
+						batchVectors[bi], 0, W2VSimilarity.DIM);
+			Object tagMatrix = Nd4jUtils.create(batchVectors);
+			Object product = null;
+			try {
+				product = Nd4jUtils.mmul(tagMatrix, tokenMatrix);
+				int resultLength = batchSize * tokenIndicesByColumn.length;
+				Object flattened = Nd4jUtils.reshape(product, new long[] {resultLength});
+				float[] flat = Nd4jUtils.toFloatVector(
+						flattened, resultLength);
+				float[][] result = new float[batchSize][tokenIndicesByColumn.length];
+				for (int bi = 0; bi < batchSize; bi++)
+					System.arraycopy(flat, bi * tokenIndicesByColumn.length,
+							result[bi], 0, tokenIndicesByColumn.length);
+				return result;
+			} finally {
+				Nd4jUtils.close(product);
+				Nd4jUtils.close(tagMatrix);
+			}
+		}
+
+		private float[][] calculateCpuSimilarities(
+				ArrayList<Integer> positions, int start, int batchSize,
+				int[] queryTagIndices, WordVecSimilarity w2v) {
+			float[][] result = new float[batchSize][tokenIndicesByColumn.length];
+			for (int bi = 0; bi < batchSize; bi++) {
+				int tagIndex = queryTagIndices[positions.get(start + bi)];
+				for (int column = 0; column < tokenIndicesByColumn.length; column++)
+					result[bi][column] = w2v.similarity(tokenIndicesByColumn[column], tagIndex);
+			}
+			return result;
+		}
+
+		private double[] aggregateCommitEvidence(float[] similarities, double threshold) {
+			double[] evidence = new double[commits.size()];
+			for (CommitRecord commit : commits) {
+				double sum = 0.0;
+				for (int ti = 0; ti < commit.projectTokenColumns.length; ti++) {
+					float similarity = similarities[commit.projectTokenColumns[ti]];
+					if (similarity > threshold)
+						sum += commit.tokenFrequencies[ti] * similarity;
+				}
+				evidence[commit.projectCommitIndex] = sum;
+			}
+			return evidence;
+		}
+
+		public void close() {
+			commitEvidenceByTag.clear();
+			Nd4jUtils.close(tokenMatrix);
+		}
+	}
+
+	public static PerTagTokenEvidenceIndex createPerTagTokenEvidenceIndex(
+			TreeMap<String, ArrayList<CommitRecord>> developerCommitIndex,
+			int indentationLevel) {
+		if (!W2V_COMMIT_EVIDENCE_MODE.usesPerTagTokenThreshold())
+			return null;
+		return new PerTagTokenEvidenceIndex(developerCommitIndex, indentationLevel);
+	}
+
 	public static W2VQueryState createW2VQueryState(
 			WordsAndCounts wAC, Graph graph, BTOption2_w option2_w) {
 		WordVecSimilarity w2v = WordVecSimilarity.getInstance();
@@ -158,10 +388,14 @@ public class AlgPrep {
 			tagWeights[i] = option2_w == BTOption2_w.USE_TERM_WEIGHTING
 					? graph.getNodeWeight(wAC.words[i]) : 1.0;
 			if (tagIndices[i] >= 0) {
-				w2v.readNormalizedRow(tagIndices[i], tagVectors[i]);
+				if (W2V_COMMIT_EVIDENCE_MODE.usesPerTagTokenThreshold())
+					w2v.readRow(tagIndices[i], tagVectors[i]);
+				else
+					w2v.readNormalizedRow(tagIndices[i], tagVectors[i]);
 			}
 		}
-		Object tagMatrix = Nd4jUtils.isAvailable() ? Nd4jUtils.create(tagVectors) : null;
+		Object tagMatrix = Nd4jUtils.isAvailable() && !W2V_COMMIT_EVIDENCE_MODE.usesPerTagTokenThreshold()
+				? Nd4jUtils.create(tagVectors) : null;
 		return new W2VQueryState(tagIndices, tagVectors, tagWeights, tagMatrix);
 	}
 
@@ -424,8 +658,10 @@ public class AlgPrep {
 						CommitRecord cr = commits.get(ci);
 						float[] cv = cr.commitVector;
 						double recency = getCommitRecency(ci, lastCommitIndex, averageCommitsPerPeriod);
-						for (int d = 0; d < dim; d++) {
-							aggregatedVector[d] += (float) (recency * cv[d]);
+						if (cv != null) {
+							for (int d = 0; d < dim; d++) {
+								aggregatedVector[d] += (float) (recency * cv[d]);
+							}
 						}
 					}
 					commitsBeforeBugDate = lastCommitIndex + 1;
@@ -456,15 +692,18 @@ public class AlgPrep {
 				TreeMap<String, ArrayList<CommitRecord>> developerCommitIndex,
 				TreeMap<String, ArrayList<CommitMessageRecord>> developerCommitMessageIndex,
 				W2VQueryState w2vQueryState,
+				PerTagTokenEvidenceIndex perTagTokenEvidenceIndex,
 				HashMap<String, Double> scores) {
 		boolean useCode = W2V_COMMIT_EVIDENCE_MODE.usesCode();
 		boolean useMessage = W2V_COMMIT_EVIDENCE_MODE.usesMessage();
+		boolean usePerTagTokenThreshold = W2V_COMMIT_EVIDENCE_MODE.usesPerTagTokenThreshold();
 		WordVecSimilarity w2v = useCode ? WordVecSimilarity.getInstance() : null;
 		int devCount = community.size();
 		int dim = W2VSimilarity.DIM;
 		int[] queryTagIndices = useCode ? new int[wAC.size] : null;
 		float[][] queryTagVectors = useCode ? new float[wAC.size][dim] : null;
 		double[] tagWeights = new double[wAC.size];
+		double[] tagThresholds = usePerTagTokenThreshold ? new double[wAC.size] : null;
 		if (useCode && w2vQueryState != null) {
 			System.arraycopy(w2vQueryState.tagIndices, 0, queryTagIndices, 0, wAC.size);
 			for (int i = 0; i < wAC.size; i++) {
@@ -477,7 +716,10 @@ public class AlgPrep {
 				tagWeights[i] = option2_w == BTOption2_w.USE_TERM_WEIGHTING
 						? graph.getNodeWeight(wAC.words[i]) : 1.0;
 				if (queryTagIndices[i] >= 0) {
-					w2v.readNormalizedRow(queryTagIndices[i], queryTagVectors[i]);
+					if (usePerTagTokenThreshold)
+						w2v.readRow(queryTagIndices[i], queryTagVectors[i]);
+					else
+						w2v.readNormalizedRow(queryTagIndices[i], queryTagVectors[i]);
 				}
 			}
 		} else {
@@ -486,10 +728,24 @@ public class AlgPrep {
 						? graph.getNodeWeight(wAC.words[i]) : 1.0;
 			}
 		}
+		if (usePerTagTokenThreshold) {
+			for (int i = 0; i < wAC.size; i++) {
+				if (queryTagIndices[i] >= 0)
+					tagThresholds[i] = getRequiredTagSimilarityThreshold(wAC.words[i]);
+			}
+		}
+		double[][] commitEvidenceByQueryTag = null;
+		if (usePerTagTokenThreshold) {
+			if (perTagTokenEvidenceIndex == null)
+				throw new IllegalStateException("Per-tag token evidence index was not initialized");
+			commitEvidenceByQueryTag = perTagTokenEvidenceIndex.getCommitEvidence(
+					queryTagIndices, queryTagVectors, tagThresholds, w2v, 5);
+		}
 
-		boolean useBatchNd4j = useCode && Nd4jUtils.isAvailable() && w2vQueryState != null
+		boolean useBatchNd4j = useCode && !usePerTagTokenThreshold
+				&& Nd4jUtils.isAvailable() && w2vQueryState != null
 				&& w2vQueryState.tagMatrix != null && devCount > 0;
-		float[][] aggregatedVectors = useCode ? new float[devCount][dim] : null;
+		float[][] aggregatedVectors = useCode && !usePerTagTokenThreshold ? new float[devCount][dim] : null;
 		boolean[] hasAggregated = new boolean[devCount];
 		for (int devIndex = 0; devIndex < devCount; devIndex++) {
 			String login = community.get(devIndex)[0];
@@ -506,15 +762,30 @@ public class AlgPrep {
 					hasAggregated[devIndex] = true;
 					double averageCommitsPerPeriod = getAverageCommitsPerPeriodAtAssignment(
 						commits, lastCommitIndex, a.date);
-					for (int d = 0; d < dim; d++) {
-						aggregatedVectors[devIndex][d] = 0.0f;
-					}
-					for (int ci = 0; ci <= lastCommitIndex; ci++) {
-						CommitRecord cr = commits.get(ci);
-						float[] cv = cr.commitVector;
-						double recency = getCommitRecency(ci, lastCommitIndex, averageCommitsPerPeriod);
-						for (int d = 0; d < dim; d++) {
-							aggregatedVectors[devIndex][d] += (float) (recency * cv[d]);
+					if (usePerTagTokenThreshold) {
+						double[] tagScores = new double[wAC.size];
+						for (int ci = 0; ci <= lastCommitIndex; ci++) {
+							CommitRecord cr = commits.get(ci);
+							double recency = getCommitRecency(ci, lastCommitIndex, averageCommitsPerPeriod);
+							for (int i = 0; i < wAC.size; i++) {
+								if (queryTagIndices[i] < 0)
+									continue;
+								tagScores[i] += recency
+										* commitEvidenceByQueryTag[i][cr.projectCommitIndex];
+							}
+						}
+						double codeScore = 0.0;
+						for (int i = 0; i < wAC.size; i++)
+							codeScore += wAC.counts[i] * tagWeights[i] * tagScores[i];
+						scores.put(login, scores.get(login) + codeScore);
+					} else {
+						for (int ci = 0; ci <= lastCommitIndex; ci++) {
+							CommitRecord cr = commits.get(ci);
+							float[] cv = cr.commitVector;
+							double recency = getCommitRecency(ci, lastCommitIndex, averageCommitsPerPeriod);
+							for (int d = 0; d < dim; d++) {
+								aggregatedVectors[devIndex][d] += (float) (recency * cv[d]);
+							}
 						}
 					}
 				}
@@ -559,7 +830,7 @@ public class AlgPrep {
 		for (int devIndex = 0; devIndex < devCount; devIndex++) {
 			String login = community.get(devIndex)[0];
 			double score = scores.get(login);
-			if (!useCode || !hasAggregated[devIndex]) {
+			if (!useCode || usePerTagTokenThreshold || !hasAggregated[devIndex]) {
 				scores.put(login, score);
 				continue;
 			}
@@ -967,39 +1238,52 @@ public class AlgPrep {
 						}
 					}
 
+					if (W2V_COMMIT_EVIDENCE_MODE.usesPerTagTokenThreshold()) {
+						double[] thresholds = new double[wAC.size];
+						for (int i = 0; i < wAC.size; i++)
+							if (queryTagIndices[i] >= 0)
+								thresholds[i] = getRequiredTagSimilarityThreshold(wAC.words[i]);
+						for (int ci = 0; ci <= lastCommitIndex; ci++) {
+							AlgPrep.CommitRecord cr = commits.get(ci);
+							double recency = getCommitRecency(ci, lastCommitIndex, averageCommitsPerPeriod);
+							for (int i = 0; i < wAC.size; i++) {
+								if (queryTagIndices[i] < 0)
+									continue;
+								for (int ti = 0; ti < cr.tokenIndices.length; ti++) {
+									float sim = w2v.similarity(cr.tokenIndices[ti], queryTagIndices[i]);
+									if (sim > thresholds[i])
+										tagAggScores[i] += recency * cr.tokenFrequencies[ti] * sim;
+								}
+							}
+						}
+						for (int i = 0; i < wAC.size; i++)
+							score += wAC.counts[i] * tagWeights[i] * tagAggScores[i];
+					} else {
 // Build a recency-weighted aggregated commit vector for this developer up to lastCommitIndex
-                    float[] aggregatedVector = new float[W2VSimilarity.DIM];
-                    for (int d = 0; d < W2VSimilarity.DIM; d++) aggregatedVector[d] = 0.0f;
-                    for (int ci = 0; ci <= lastCommitIndex; ci++) {
-                        AlgPrep.CommitRecord cr = commits.get(ci);
-                        double recency = getCommitRecency(ci, lastCommitIndex, averageCommitsPerPeriod);
-                        float[] cv = cr.commitVector;
-                        for (int d = 0; d < W2VSimilarity.DIM; d++) {
-                            aggregatedVector[d] += (float)(recency * cv[d]);
-                        }
-                    }
+						float[] aggregatedVector = new float[W2VSimilarity.DIM];
+						for (int ci = 0; ci <= lastCommitIndex; ci++) {
+							AlgPrep.CommitRecord cr = commits.get(ci);
+							double recency = getCommitRecency(ci, lastCommitIndex, averageCommitsPerPeriod);
+							float[] cv = cr.commitVector;
+							for (int d = 0; d < W2VSimilarity.DIM; d++)
+								aggregatedVector[d] += (float)(recency * cv[d]);
+						}
 
 // Now compute tag aggregated scores using ND4J matrix-vector multiplication.
-                    Object aggregated = Nd4jUtils.isAvailable() ? Nd4jUtils.create(aggregatedVector, new long[] {W2VSimilarity.DIM, 1}) : null;
-                    Object sims = null;
-                    if (Nd4jUtils.isAvailable() && w2vQueryState != null && w2vQueryState.tagMatrix != null) {
-                        sims = Nd4jUtils.reshape(Nd4jUtils.mmul(w2vQueryState.tagMatrix, aggregated), new long[] {wAC.size});
-                    }
+						Object aggregated = Nd4jUtils.isAvailable() ? Nd4jUtils.create(aggregatedVector, new long[] {W2VSimilarity.DIM, 1}) : null;
+						Object sims = null;
+						if (Nd4jUtils.isAvailable() && w2vQueryState != null && w2vQueryState.tagMatrix != null)
+							sims = Nd4jUtils.reshape(Nd4jUtils.mmul(w2vQueryState.tagMatrix, aggregated), new long[] {wAC.size});
 
-                    for (int i = 0; i < wAC.size; i++) {
-                        if (queryTagIndices[i] < 0) continue;
-                        float sim;
-                        if (Nd4jUtils.isAvailable() && sims != null) {
-                            sim = Nd4jUtils.getFloat(sims, i);
-                        } else {
-                            sim = W2VSimilarity.dot(aggregatedVector, queryTagVectors[i]);
-                        }
-                        if (sim > 0.0f) {
-                            tagAggScores[i] = sim;
-                        } else {
-                            tagAggScores[i] = 0.0;
-                        }
-						score += wAC.counts[i] * tagWeights[i] * tagAggScores[i];
+						for (int i = 0; i < wAC.size; i++) {
+							if (queryTagIndices[i] < 0) continue;
+							float sim = Nd4jUtils.isAvailable() && sims != null
+									? Nd4jUtils.getFloat(sims, i)
+									: W2VSimilarity.dot(aggregatedVector, queryTagVectors[i]);
+							if (sim > 0.0f)
+								tagAggScores[i] = sim;
+							score += wAC.counts[i] * tagWeights[i] * tagAggScores[i];
+						}
 					}
 
 					if (option5_prioritizePAs == BTOption5_prioritizePAs.PRIORITY_FOR_PREVIOUS_ASSIGNEES)
@@ -1973,8 +2257,11 @@ public class AlgPrep {
 				List<String> uniqueTokens = new ArrayList<>(tokenFreqs.keySet());
 				if (uniqueTokens.isEmpty()) continue;
 
-				float[] commitVector = new float[W2VSimilarity.DIM];
-				float[] tokenVec = new float[W2VSimilarity.DIM];
+				boolean storeTokensForPerTagFiltering = W2V_COMMIT_EVIDENCE_MODE.usesPerTagTokenThreshold();
+				float[] commitVector = storeTokensForPerTagFiltering ? null : new float[W2VSimilarity.DIM];
+				float[] tokenVec = storeTokensForPerTagFiltering ? null : new float[W2VSimilarity.DIM];
+				ArrayList<Integer> inVocabIndices = storeTokensForPerTagFiltering ? new ArrayList<Integer>() : null;
+				ArrayList<Integer> inVocabFrequencies = storeTokensForPerTagFiltering ? new ArrayList<Integer>() : null;
 				long simStart = 0;
 				int inVocabTokenCount = 0;
 
@@ -1982,17 +2269,24 @@ public class AlgPrep {
 					int tokenIndex = w2v.indexOf(token);
 					if (tokenIndex < 0) continue;
 					int freq = tokenFreqs.getOrDefault(token, 1);
-					if (simStart == 0) {
-						simStart = System.currentTimeMillis();
-					}
-					w2v.readRow(tokenIndex, tokenVec);
-					for (int k = 0; k < W2VSimilarity.DIM; k++) {
-						commitVector[k] += tokenVec[k] * freq;
+					if (storeTokensForPerTagFiltering) {
+						inVocabIndices.add(tokenIndex);
+						inVocabFrequencies.add(freq);
+					} else {
+						if (simStart == 0)
+							simStart = System.currentTimeMillis();
+						w2v.readRow(tokenIndex, tokenVec);
+						for (int k = 0; k < W2VSimilarity.DIM; k++) {
+							commitVector[k] += tokenVec[k] * freq;
+						}
 					}
 					inVocabTokenCount += freq;
 				}
 
-				if (simStart != 0 && inVocabTokenCount > 0) {
+				if (inVocabTokenCount > 0)
+					diffsProcessed++;
+
+				if (!storeTokensForPerTagFiltering && simStart != 0 && inVocabTokenCount > 0) {
 					for (int k = 0; k < W2VSimilarity.DIM; k++) {
 						commitVector[k] /= inVocabTokenCount;
 					}
@@ -2007,14 +2301,24 @@ public class AlgPrep {
 						}
 					}
 					long simElapsed = System.currentTimeMillis() - simStart;
-					diffsProcessed++;
 					if (simElapsed > 1000) {
 						MyUtils.println("  WARNING: similarity compute took " + simElapsed + "ms for " + uniqueTokens.size() + " tokens (diffs=" + diffsProcessed + ")", indentationLevel);
 					}
 				}
 
 				if (inVocabTokenCount > 0) {
-					CommitRecord cr = new CommitRecord(commitSHA, developer, parsedDate, commitVector);
+					CommitRecord cr;
+					if (storeTokensForPerTagFiltering) {
+						int[] tokenIndices = new int[inVocabIndices.size()];
+						int[] tokenFrequencies = new int[inVocabFrequencies.size()];
+						for (int ti = 0; ti < tokenIndices.length; ti++) {
+							tokenIndices[ti] = inVocabIndices.get(ti);
+							tokenFrequencies[ti] = inVocabFrequencies.get(ti);
+						}
+						cr = new CommitRecord(commitSHA, developer, parsedDate, tokenIndices, tokenFrequencies);
+					} else {
+						cr = new CommitRecord(commitSHA, developer, parsedDate, commitVector);
+					}
 					developerCommitIndex.computeIfAbsent(developer, k -> new ArrayList<>()).add(cr);
 				}
 			}

@@ -224,6 +224,7 @@ public class Constants {
 	}
 	public enum W2VCommitEvidenceMode{
 		CODE_ONLY,
+		CODE_ONLY_TOKEN_FILTERED,
 		MESSAGE_ONLY,
 		CODE_AND_MESSAGE,
 		BUG_HISTORY_AND_CODE;
@@ -238,6 +239,10 @@ public class Constants {
 
 		public boolean usesBugHistory(){
 			return this == BUG_HISTORY_AND_CODE;
+		}
+
+		public boolean usesPerTagTokenThreshold(){
+			return this == CODE_ONLY_TOKEN_FILTERED;
 		}
 	}
 	public enum BugHistoryRecencyMode{
